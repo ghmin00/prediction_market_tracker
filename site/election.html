@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Election Impact Analysis &mdash; PM Intel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 800: '#1a1a2e', 900: '#0f0f1a', 700: '#252547' },
+                        kalshi: '#f59e0b',
+                        poly: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: #0f0f1a; }
+        .toggle-btn { transition: all 0.2s ease; }
+        .toggle-btn.active { background: #252547; border-color: rgba(139, 92, 246, 0.5); color: #fff; }
+        .toggle-btn:not(.active):hover { background: rgba(37, 37, 71, 0.5); }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+    <nav class="bg-dark-800 border-b border-gray-700/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6 overflow-x-auto">
+            <a href="index.html" class="text-lg font-bold text-white whitespace-nowrap" data-i18n="nav.home">PM Intel</a>
+            <a href="platform-war.html" class="text-sm text-gray-400 hover:text-kalshi whitespace-nowrap" data-i18n="nav.platform-war">Platform War</a>
+            <a href="arbitrage.html" class="text-sm text-gray-400 hover:text-poly whitespace-nowrap" data-i18n="nav.arbitrage">Arbitrage Map</a>
+            <a href="wash-trading.html" class="text-sm text-gray-400 hover:text-red-400 whitespace-nowrap" data-i18n="nav.wash-trading">Wash Trading</a>
+            <a href="election.html" class="text-sm text-white font-semibold whitespace-nowrap" data-i18n="nav.election">Election Impact</a>
+            <a href="concentration.html" class="text-sm text-gray-400 hover:text-green-400 whitespace-nowrap" data-i18n="nav.concentration">Concentration</a>
+            <a href="timelapse.html" class="text-sm text-gray-400 hover:text-emerald-400 whitespace-nowrap" data-i18n="nav.timelapse">Time Lapse</a>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-10">
+
+        <!-- Header -->
+        <div class="mb-10">
+            <h1 class="text-4xl font-bold text-white mb-3" data-i18n="el.title">Election Impact Analysis</h1>
+            <p class="text-gray-400 max-w-3xl text-base leading-relaxed" data-i18n-html="el.subtitle">
+                Elections are the single largest volume driver in prediction markets. The 2024 US Presidential Election
+                triggered an unprecedented surge &mdash; Polymarket alone processed <span class="text-white font-semibold">$532M in a single day</span>.
+                This page maps how election cycles create massive, predictable volume spikes across both platforms.
+            </p>
+        </div>
+
+        <!-- Callout Stats -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+            <div class="bg-dark-800 rounded-xl p-5 border border-gray-700/50">
+                <div class="text-xs text-gray-500 uppercase tracking-wider mb-1" data-i18n="el.s1.sub">Nov 6, 2024</div>
+                <div class="text-2xl font-bold text-poly">$532M</div>
+                <div class="text-xs text-gray-400 mt-1" data-i18n="el.s1">Polymarket all-time daily record</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-5 border border-gray-700/50">
+                <div class="text-xs text-gray-500 uppercase tracking-wider mb-1" data-i18n="el.s2.sub">Oct 31, 2024</div>
+                <div class="text-2xl font-bold text-kalshi">6.4x</div>
+                <div class="text-xs text-gray-400 mt-1" data-i18n="el.s2">Polymarket / Kalshi ratio</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-5 border border-gray-700/50">
+                <div class="text-xs text-gray-500 uppercase tracking-wider mb-1" data-i18n="el.s3.sub">US Elections</div>
+                <div class="text-2xl font-bold text-red-400">12.5%</div>
+                <div class="text-xs text-gray-400 mt-1" data-i18n="el.s3">Share of all-time volume</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-5 border border-gray-700/50">
+                <div class="text-xs text-gray-500 uppercase tracking-wider mb-1" data-i18n="el.s4.sub">Total US Election Volume</div>
+                <div class="text-2xl font-bold text-white">$10.9B</div>
+                <div class="text-xs text-gray-400 mt-1" data-i18n="el.s4">Combined Kalshi + Polymarket</div>
+            </div>
+        </div>
+
+        <!-- Toggle Buttons + Main Chart -->
+        <div class="bg-dark-800 rounded-xl p-6 border border-gray-700/50 mb-8">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-lg font-semibold text-white" data-i18n="el.chart.title">Daily Volume Over Time</h2>
+                    <p class="text-sm text-gray-400 mt-1" data-i18n="el.chart.desc">Daily volume trends with vertical markers on election days.</p>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btn-total" onclick="switchView('total')" class="toggle-btn active text-sm px-4 py-1.5 rounded-lg border border-gray-700/50 text-gray-400 cursor-pointer" data-i18n="el.f.all">All Volume</button>
+                    <button id="btn-politics" onclick="switchView('politics')" class="toggle-btn text-sm px-4 py-1.5 rounded-lg border border-gray-700/50 text-gray-400 cursor-pointer" data-i18n="el.f.politics">Politics Only</button>
+                    <button id="btn-us_elections" onclick="switchView('us_elections')" class="toggle-btn text-sm px-4 py-1.5 rounded-lg border border-gray-700/50 text-gray-400 cursor-pointer" data-i18n="el.f.elections">US Elections Only</button>
+                </div>
+            </div>
+            <div class="relative" style="height: 420px;">
+                <canvas id="mainChart"></canvas>
+            </div>
+            <div class="flex items-center justify-center gap-6 mt-4 text-xs text-gray-500">
+                <span class="flex items-center gap-2"><span class="inline-block w-3 h-0.5 bg-kalshi rounded"></span> Kalshi</span>
+                <span class="flex items-center gap-2"><span class="inline-block w-3 h-0.5 bg-poly rounded"></span> Polymarket</span>
+                <span class="flex items-center gap-2"><span class="inline-block w-3 h-0.5 border-t border-dashed border-red-400"></span> Election Date</span>
+            </div>
+        </div>
+
+        <!-- Zoomed Election Window Chart -->
+        <div class="bg-dark-800 rounded-xl p-6 border border-gray-700/50 mb-8">
+            <div class="mb-6">
+                <h2 class="text-lg font-semibold text-white" data-i18n="el.zoom.title">Election Window: Oct 1 &ndash; Nov 30, 2024</h2>
+                <p class="text-sm text-gray-400 mt-1" data-i18n="el.zoom.desc">Zoomed view of US Elections daily volume during the 2024 presidential election cycle.</p>
+            </div>
+            <div class="relative" style="height: 360px;">
+                <canvas id="zoomChart"></canvas>
+            </div>
+            <div class="flex items-center justify-center gap-6 mt-4 text-xs text-gray-500">
+                <span class="flex items-center gap-2"><span class="inline-block w-3 h-0.5 bg-kalshi rounded"></span> Kalshi</span>
+                <span class="flex items-center gap-2"><span class="inline-block w-3 h-0.5 bg-poly rounded"></span> Polymarket</span>
+                <span class="flex items-center gap-2"><span class="inline-block w-3 h-0.5 border-t border-dashed border-red-400"></span> Election Day (Nov 5)</span>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const KALSHI_COLOR = '#f59e0b';
+        const POLY_COLOR = '#8b5cf6';
+        const GRID_COLOR = 'rgba(255,255,255,0.05)';
+        const TICK_COLOR = '#6b7280';
+
+        let rawData = null;
+        let mainChart = null;
+        let zoomChart = null;
+        let currentView = 'total';
+
+        function formatDollars(val) {
+            if (val >= 1e9) return '$' + (val / 1e9).toFixed(1) + 'B';
+            if (val >= 1e6) return '$' + (val / 1e6).toFixed(0) + 'M';
+            if (val >= 1e3) return '$' + (val / 1e3).toFixed(0) + 'K';
+            return '$' + val;
+        }
+
+        function formatDollarsFull(val) {
+            if (val >= 1e9) return '$' + (val / 1e9).toFixed(2) + 'B';
+            if (val >= 1e6) return '$' + (val / 1e6).toFixed(1) + 'M';
+            if (val >= 1e3) return '$' + (val / 1e3).toFixed(1) + 'K';
+            return '$' + val;
+        }
+
+        function buildAnnotations(events, labels) {
+            const annotations = {};
+            events.forEach((evt, i) => {
+                const idx = labels.indexOf(evt.date);
+                if (idx === -1) return;
+                annotations['line' + i] = {
+                    type: 'line',
+                    xMin: evt.date,
+                    xMax: evt.date,
+                    borderColor: 'rgba(239, 68, 68, 0.6)',
+                    borderWidth: 1.5,
+                    borderDash: [6, 4],
+                    label: {
+                        display: true,
+                        content: evt.label,
+                        position: 'start',
+                        backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                        color: '#f87171',
+                        font: { size: 10, weight: 'bold' },
+                        padding: { top: 3, bottom: 3, left: 6, right: 6 },
+                        borderRadius: 4,
+                    }
+                };
+            });
+            return annotations;
+        }
+
+        function getTickCallback(labels) {
+            const total = labels.length;
+            const step = Math.max(1, Math.round(total / 18));
+            return function(value, index) {
+                if (index % step === 0) {
+                    const d = new Date(labels[index]);
+                    return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                }
+                return null;
+            };
+        }
+
+        function createMainChart(series, events) {
+            const labels = series.map(d => d.date);
+            const kalshiData = series.map(d => d.kalshi);
+            const polyData = series.map(d => d.polymarket);
+
+            const ctx = document.getElementById('mainChart').getContext('2d');
+
+            if (mainChart) mainChart.destroy();
+
+            mainChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Kalshi',
+                            data: kalshiData,
+                            borderColor: KALSHI_COLOR,
+                            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            tension: 0.1,
+                            fill: false,
+                        },
+                        {
+                            label: 'Polymarket',
+                            data: polyData,
+                            borderColor: POLY_COLOR,
+                            backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            tension: 0.1,
+                            fill: false,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: GRID_COLOR, drawBorder: false },
+                            ticks: {
+                                color: TICK_COLOR,
+                                font: { size: 10 },
+                                maxRotation: 0,
+                                callback: getTickCallback(labels),
+                            },
+                            border: { display: false },
+                        },
+                        y: {
+                            grid: { color: GRID_COLOR, drawBorder: false },
+                            ticks: {
+                                color: TICK_COLOR,
+                                font: { size: 10 },
+                                callback: function(value) { return formatDollars(value); }
+                            },
+                            border: { display: false },
+                            beginAtZero: true,
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1a1a2e',
+                            titleColor: '#fff',
+                            bodyColor: '#d1d5db',
+                            borderColor: '#252547',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                title: function(items) {
+                                    const d = new Date(items[0].label);
+                                    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                                },
+                                label: function(ctx) {
+                                    return ctx.dataset.label + ': ' + formatDollarsFull(ctx.parsed.y);
+                                }
+                            }
+                        },
+                        annotation: {
+                            annotations: buildAnnotations(events, labels)
+                        }
+                    }
+                }
+            });
+        }
+
+        function createZoomChart(usElections, events) {
+            const startDate = '2024-10-01';
+            const endDate = '2024-11-30';
+            const filtered = usElections.filter(d => d.date >= startDate && d.date <= endDate);
+
+            const labels = filtered.map(d => d.date);
+            const kalshiData = filtered.map(d => d.kalshi);
+            const polyData = filtered.map(d => d.polymarket);
+
+            const electionDay = events.find(e => e.date === '2024-11-05');
+            const zoomAnnotations = {};
+            if (electionDay && labels.includes(electionDay.date)) {
+                zoomAnnotations['electionLine'] = {
+                    type: 'line',
+                    xMin: electionDay.date,
+                    xMax: electionDay.date,
+                    borderColor: 'rgba(239, 68, 68, 0.7)',
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    label: {
+                        display: true,
+                        content: 'Election Day',
+                        position: 'start',
+                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                        color: '#f87171',
+                        font: { size: 11, weight: 'bold' },
+                        padding: { top: 4, bottom: 4, left: 8, right: 8 },
+                        borderRadius: 4,
+                    }
+                };
+            }
+
+            const ctx = document.getElementById('zoomChart').getContext('2d');
+
+            if (zoomChart) zoomChart.destroy();
+
+            zoomChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Kalshi',
+                            data: kalshiData,
+                            borderColor: KALSHI_COLOR,
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            tension: 0.1,
+                            fill: true,
+                        },
+                        {
+                            label: 'Polymarket',
+                            data: polyData,
+                            borderColor: POLY_COLOR,
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            tension: 0.1,
+                            fill: true,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: GRID_COLOR, drawBorder: false },
+                            ticks: {
+                                color: TICK_COLOR,
+                                font: { size: 10 },
+                                maxRotation: 0,
+                                callback: function(value, index) {
+                                    const total = labels.length;
+                                    const step = Math.max(1, Math.round(total / 12));
+                                    if (index % step === 0) {
+                                        const d = new Date(labels[index]);
+                                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                    }
+                                    return null;
+                                }
+                            },
+                            border: { display: false },
+                        },
+                        y: {
+                            grid: { color: GRID_COLOR, drawBorder: false },
+                            ticks: {
+                                color: TICK_COLOR,
+                                font: { size: 10 },
+                                callback: function(value) { return formatDollars(value); }
+                            },
+                            border: { display: false },
+                            beginAtZero: true,
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1a1a2e',
+                            titleColor: '#fff',
+                            bodyColor: '#d1d5db',
+                            borderColor: '#252547',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                title: function(items) {
+                                    const d = new Date(items[0].label);
+                                    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                                },
+                                label: function(ctx) {
+                                    return ctx.dataset.label + ': ' + formatDollarsFull(ctx.parsed.y);
+                                }
+                            }
+                        },
+                        annotation: {
+                            annotations: zoomAnnotations
+                        }
+                    }
+                }
+            });
+        }
+
+        function switchView(view) {
+            currentView = view;
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn-' + view).classList.add('active');
+            if (rawData) {
+                createMainChart(rawData[view], rawData.election_events);
+            }
+        }
+
+        async function init() {
+            try {
+                const resp = await fetch('data/election.json');
+                rawData = await resp.json();
+                createMainChart(rawData.total, rawData.election_events);
+                createZoomChart(rawData.us_elections, rawData.election_events);
+            } catch (err) {
+                console.error('Failed to load election data:', err);
+            }
+        }
+
+        init();
+    </script>
+    <script src="i18n.js"></script>
+    <script>
+    I18N.init({
+        'el.title':      '선거 임팩트 분석',
+        'el.subtitle':   '선거는 예측 시장에서 대규모 거래량 급등을 유발합니다. 2024년 미국 대선은 양 플랫폼 모두에서 역대 최고 거래일을 기록했습니다.',
+        'el.s1':         'Polymarket 역대 일일 최고',
+        'el.s1.sub':     '2024년 11월 6일',
+        'el.s2':         'Poly/Kalshi 비율',
+        'el.s2.sub':     '2024년 10월 31일',
+        'el.s3':         '미국 선거 비중',
+        'el.s3.sub':     '전체 거래량 대비',
+        'el.s4':         '총 미국 선거 거래량',
+        'el.s4.sub':     '누적 합계',
+        'el.f.all':      '전체 거래량',
+        'el.f.politics': '정치만',
+        'el.f.elections':'미국 선거만',
+        'el.chart.title':'일별 거래량',
+        'el.chart.desc': '일별 거래량 추이 (선거일에 수직 표시선)',
+        'el.zoom.title': '2024년 선거 기간 확대',
+        'el.zoom.desc':  '2024년 10월~11월 미국 선거 거래량 집중 분석',
+    });
+    </script>
+</body>
+</html>

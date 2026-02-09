@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platform War &mdash; PM Intel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 800: '#1a1a2e', 900: '#0f0f1a', 700: '#252547' },
+                        kalshi: '#f59e0b',
+                        poly: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: #0f0f1a; }
+        .glow-amber { box-shadow: 0 0 20px rgba(245, 158, 11, 0.15); }
+        .glow-purple { box-shadow: 0 0 20px rgba(139, 92, 246, 0.15); }
+        select option { background: #1a1a2e; color: #e5e7eb; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+    <nav class="bg-dark-800 border-b border-gray-700/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6 overflow-x-auto">
+            <a href="index.html" class="text-lg font-bold text-white whitespace-nowrap" data-i18n="nav.home">PM Intel</a>
+            <a href="platform-war.html" class="text-sm text-white font-semibold whitespace-nowrap" data-i18n="nav.platform-war">Platform War</a>
+            <a href="arbitrage.html" class="text-sm text-gray-400 hover:text-poly whitespace-nowrap" data-i18n="nav.arbitrage">Arbitrage Map</a>
+            <a href="wash-trading.html" class="text-sm text-gray-400 hover:text-red-400 whitespace-nowrap" data-i18n="nav.wash-trading">Wash Trading</a>
+            <a href="election.html" class="text-sm text-gray-400 hover:text-blue-400 whitespace-nowrap" data-i18n="nav.election">Election Impact</a>
+            <a href="concentration.html" class="text-sm text-gray-400 hover:text-green-400 whitespace-nowrap" data-i18n="nav.concentration">Concentration</a>
+            <a href="timelapse.html" class="text-sm text-gray-400 hover:text-emerald-400 whitespace-nowrap" data-i18n="nav.timelapse">Time Lapse</a>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-10">
+        <!-- Title Section -->
+        <div class="mb-10">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-3" data-i18n="pw.title">The Platform War</h1>
+            <p class="text-lg text-gray-400 max-w-3xl" data-i18n-html="pw.subtitle">
+                Polymarket commanded 97.6% of prediction market volume in September 2024. Sixteen months later, Kalshi flipped the script&mdash;growing 450x to claim a 55% majority. This is the story of that reversal, told through monthly trading volume.
+            </p>
+        </div>
+
+        <!-- Category Filter -->
+        <div class="mb-8 flex flex-wrap items-center gap-4">
+            <label for="categorySelect" class="text-sm text-gray-400 font-medium" data-i18n="pw.filter">Filter by category:</label>
+            <select id="categorySelect" class="bg-dark-700 border border-gray-600/50 text-gray-200 text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-poly/60 transition cursor-pointer">
+                <option value="overall">All Categories</option>
+            </select>
+            <button id="trimBtn" class="px-4 py-2 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white border border-gray-600/50 transition cursor-pointer" data-i18n="pw.trim">
+                Hide pre-2023
+            </button>
+        </div>
+
+        <!-- Volume Stacked Area Chart -->
+        <div class="bg-dark-800 rounded-xl p-6 border border-gray-700/50 mb-6">
+            <h2 class="text-lg font-bold text-white mb-1" data-i18n="pw.vol.title">Monthly Trading Volume</h2>
+            <p class="text-sm text-gray-500 mb-4" data-i18n="pw.vol.desc">Stacked area chart showing absolute dollar volume per platform</p>
+            <div class="relative" style="height: 400px;">
+                <canvas id="volumeChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Market Share Line Chart -->
+        <div class="bg-dark-800 rounded-xl p-6 border border-gray-700/50 mb-8">
+            <h2 class="text-lg font-bold text-white mb-1" data-i18n="pw.share.title">Market Share Over Time</h2>
+            <p class="text-sm text-gray-500 mb-4" data-i18n="pw.share.desc">Percentage of combined volume held by each platform</p>
+            <div class="relative" style="height: 340px;">
+                <canvas id="shareChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Callout Stats Row -->
+        <div class="grid md:grid-cols-3 gap-4">
+            <div class="bg-dark-800 rounded-xl p-6 border border-gray-700/50 text-center glow-purple">
+                <div class="text-3xl font-bold text-poly mb-1">97.6%</div>
+                <div class="text-sm text-gray-400" data-i18n="pw.stat1.label">Peak Polymarket Dominance</div>
+                <div class="text-xs text-gray-600 mt-1" data-i18n="pw.stat1.sub">September 2024</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-6 border border-gray-700/50 text-center glow-amber">
+                <div class="text-3xl font-bold text-kalshi mb-1">450x</div>
+                <div class="text-sm text-gray-400" data-i18n="pw.stat2.label">Kalshi's Growth</div>
+                <div class="text-xs text-gray-600 mt-1" data-i18n="pw.stat2.sub">Over 16 months</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-6 border border-gray-700/50 text-center">
+                <div class="text-3xl font-bold text-white mb-1">~55 / 45</div>
+                <div class="text-sm text-gray-400" data-i18n="pw.stat3.label">Current Split (Kalshi-led)</div>
+                <div class="text-xs text-gray-600 mt-1" data-i18n="pw.stat3.sub">As of early 2026</div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    // ---- Utility: format dollar values ----
+    function formatDollars(value) {
+        const abs = Math.abs(value);
+        if (abs >= 1e12) return '$' + (value / 1e12).toFixed(1) + 'T';
+        if (abs >= 1e9) return '$' + (value / 1e9).toFixed(1) + 'B';
+        if (abs >= 1e6) return '$' + (value / 1e6).toFixed(0) + 'M';
+        if (abs >= 1e3) return '$' + (value / 1e3).toFixed(0) + 'K';
+        return '$' + value.toFixed(0);
+    }
+
+    function formatDollarsCompact(value) {
+        const abs = Math.abs(value);
+        if (abs >= 1e12) return '$' + (value / 1e12).toFixed(2) + 'T';
+        if (abs >= 1e9) return '$' + (value / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e6) return '$' + (value / 1e6).toFixed(1) + 'M';
+        if (abs >= 1e3) return '$' + (value / 1e3).toFixed(0) + 'K';
+        return '$' + value.toFixed(0);
+    }
+
+    // ---- Format month labels: "2024-01" -> "Jan '24" ----
+    function formatMonth(m) {
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const [year, month] = m.split('-');
+        return months[parseInt(month, 10) - 1] + " '" + year.slice(2);
+    }
+
+    // ---- Chart instances ----
+    let volumeChart = null;
+    let shareChart = null;
+
+    // ---- Build charts from a data array ----
+    function renderCharts(data) {
+        const labels = data.map(d => formatMonth(d.month));
+        const kalshiVol = data.map(d => d.kalshi);
+        const polyVol = data.map(d => d.polymarket);
+        const kalshiPct = data.map(d => d.kalshi_pct);
+        const polyPct = data.map(d => d.poly_pct);
+
+        // ---- Stacked Area Chart ----
+        const volCtx = document.getElementById('volumeChart').getContext('2d');
+
+        if (volumeChart) volumeChart.destroy();
+
+        volumeChart = new Chart(volCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Kalshi',
+                        data: kalshiVol,
+                        backgroundColor: 'rgba(245, 158, 11, 0.35)',
+                        borderColor: '#f59e0b',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        pointHoverBackgroundColor: '#f59e0b',
+                        order: 2
+                    },
+                    {
+                        label: 'Polymarket',
+                        data: polyVol,
+                        backgroundColor: 'rgba(139, 92, 246, 0.35)',
+                        borderColor: '#8b5cf6',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        pointHoverBackgroundColor: '#8b5cf6',
+                        order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#9ca3af',
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            padding: 20,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1a1a2e',
+                        titleColor: '#fff',
+                        bodyColor: '#d1d5db',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        padding: 12,
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.dataset.label + ': ' + formatDollarsCompact(ctx.parsed.y);
+                            },
+                            afterBody: function(tooltipItems) {
+                                const kalshiVal = tooltipItems[0] ? tooltipItems[0].parsed.y : 0;
+                                const polyVal = tooltipItems[1] ? tooltipItems[1].parsed.y : 0;
+                                // Find correct values based on dataset label
+                                let k = 0, p = 0;
+                                tooltipItems.forEach(item => {
+                                    if (item.dataset.label === 'Kalshi') k = item.parsed.y;
+                                    if (item.dataset.label === 'Polymarket') p = item.parsed.y;
+                                });
+                                const total = k + p;
+                                if (total === 0) return '';
+                                return '\nTotal: ' + formatDollarsCompact(total);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(75, 85, 99, 0.2)' },
+                        ticks: {
+                            color: '#6b7280',
+                            font: { size: 11 },
+                            maxRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 18
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        grid: { color: 'rgba(75, 85, 99, 0.2)' },
+                        ticks: {
+                            color: '#6b7280',
+                            font: { size: 11 },
+                            callback: function(value) {
+                                return formatDollars(value);
+                            }
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // ---- Market Share Line Chart ----
+        const shareCtx = document.getElementById('shareChart').getContext('2d');
+
+        if (shareChart) shareChart.destroy();
+
+        shareChart = new Chart(shareCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Kalshi %',
+                        data: kalshiPct,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                        borderWidth: 2.5,
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        pointHoverBackgroundColor: '#f59e0b'
+                    },
+                    {
+                        label: 'Polymarket %',
+                        data: polyPct,
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                        borderWidth: 2.5,
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        pointHoverBackgroundColor: '#8b5cf6'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#9ca3af',
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            padding: 20,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1a1a2e',
+                        titleColor: '#fff',
+                        bodyColor: '#d1d5db',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        padding: 12,
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%';
+                            }
+                        }
+                    },
+                    annotation: undefined
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(75, 85, 99, 0.2)' },
+                        ticks: {
+                            color: '#6b7280',
+                            font: { size: 11 },
+                            maxRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 18
+                        }
+                    },
+                    y: {
+                        grid: { color: 'rgba(75, 85, 99, 0.2)' },
+                        min: 0,
+                        max: 100,
+                        ticks: {
+                            color: '#6b7280',
+                            font: { size: 11 },
+                            callback: function(value) {
+                                return value + '%';
+                            },
+                            stepSize: 20
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ---- Main: Fetch data and wire up ----
+    (async function() {
+        let platformData;
+        try {
+            const res = await fetch('data/platform_war.json');
+            platformData = await res.json();
+        } catch (err) {
+            console.error('Failed to load platform_war.json:', err);
+            return;
+        }
+
+        // Populate category dropdown
+        const select = document.getElementById('categorySelect');
+        platformData.categories.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat;
+            opt.textContent = cat;
+            select.appendChild(opt);
+        });
+
+        let trimPre2023 = false;
+
+        function getActiveData() {
+            const val = select.value;
+            let data = val === 'overall'
+                ? platformData.overall
+                : (platformData.by_category[val] || []);
+            if (trimPre2023) {
+                data = data.filter(d => d.month >= '2023-01');
+            }
+            return data;
+        }
+
+        function refresh() {
+            renderCharts(getActiveData());
+        }
+
+        // Initial render
+        refresh();
+
+        // Category filter
+        select.addEventListener('change', refresh);
+
+        // Trim toggle
+        const trimBtn = document.getElementById('trimBtn');
+        trimBtn.addEventListener('click', function() {
+            trimPre2023 = !trimPre2023;
+            if (trimPre2023) {
+                trimBtn.classList.remove('bg-dark-700', 'text-gray-400');
+                trimBtn.classList.add('bg-poly', 'text-white');
+                trimBtn.textContent = 'Show all dates';
+            } else {
+                trimBtn.classList.remove('bg-poly', 'text-white');
+                trimBtn.classList.add('bg-dark-700', 'text-gray-400');
+                trimBtn.textContent = 'Hide pre-2023';
+            }
+            refresh();
+        });
+    })();
+    </script>
+<script src="i18n.js"></script>
+<script>
+I18N.init({
+    'pw.title':       '플랫폼 전쟁',
+    'pw.subtitle':    'Polymarket은 2024년 9월 예측 시장 거래량의 97.6%를 장악했습니다. 16개월 후, Kalshi가 450배 성장하여 55%의 점유율로 판세를 뒤집었습니다. 이것은 월별 거래량으로 보는 그 역전의 이야기입니다.',
+    'pw.filter':      '카테고리 필터:',
+    'pw.vol.title':   '월별 거래량',
+    'pw.vol.desc':    '플랫폼별 절대 달러 거래량을 보여주는 누적 영역 차트',
+    'pw.share.title': '시간에 따른 시장 점유율',
+    'pw.share.desc':  '각 플랫폼이 보유한 합산 거래량의 비율',
+    'pw.stat1.label': 'Polymarket 최고 점유율',
+    'pw.stat1.sub':   '2024년 9월',
+    'pw.stat2.label': 'Kalshi 성장률',
+    'pw.stat2.sub':   '16개월간',
+    'pw.stat3.label': '현재 비율 (Kalshi 우위)',
+    'pw.stat3.sub':   '2026년 초 기준',
+});
+
+// Patch trim button text for i18n
+const _origTrimClick = document.getElementById('trimBtn').onclick;
+const trimBtn = document.getElementById('trimBtn');
+const trimObserver = new MutationObserver(() => {
+    // Re-apply i18n if needed after button text changes
+});
+</script>
+</body>
+</html>

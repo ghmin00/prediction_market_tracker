@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Market Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 800: '#1a1a2e', 900: '#0f0f1a', 700: '#252547' },
+                        kalshi: '#f59e0b',
+                        poly: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: #0f0f1a; }
+        .glow-amber { box-shadow: 0 0 20px rgba(245, 158, 11, 0.15); }
+        .glow-purple { box-shadow: 0 0 20px rgba(139, 92, 246, 0.15); }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+    <nav class="bg-dark-800 border-b border-gray-700/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6 overflow-x-auto">
+            <a href="index.html" class="text-lg font-bold text-white whitespace-nowrap" data-i18n="nav.home">PM Intel</a>
+            <a href="platform-war.html" class="text-sm text-gray-400 hover:text-kalshi whitespace-nowrap" data-i18n="nav.platform-war">Platform War</a>
+            <a href="arbitrage.html" class="text-sm text-gray-400 hover:text-poly whitespace-nowrap" data-i18n="nav.arbitrage">Arbitrage Map</a>
+            <a href="wash-trading.html" class="text-sm text-gray-400 hover:text-red-400 whitespace-nowrap" data-i18n="nav.wash-trading">Wash Trading</a>
+            <a href="election.html" class="text-sm text-gray-400 hover:text-blue-400 whitespace-nowrap" data-i18n="nav.election">Election Impact</a>
+            <a href="concentration.html" class="text-sm text-gray-400 hover:text-green-400 whitespace-nowrap" data-i18n="nav.concentration">Concentration</a>
+            <a href="timelapse.html" class="text-sm text-gray-400 hover:text-emerald-400 whitespace-nowrap" data-i18n="nav.timelapse">Time Lapse</a>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-12">
+        <div class="text-center mb-16">
+            <h1 class="text-5xl font-bold text-white mb-4" data-i18n="idx.title">Prediction Market Intelligence</h1>
+            <p class="text-xl text-gray-400 max-w-2xl mx-auto" data-i18n-html="idx.subtitle">
+                Anomalies, asymmetries, and insights from 1M+ daily records across Kalshi and Polymarket (2021&ndash;2026).
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+            <a href="platform-war.html" class="block bg-dark-800 rounded-xl p-6 border border-gray-700/50 hover:border-kalshi/50 transition glow-amber">
+                <div class="text-kalshi text-sm font-semibold mb-2">01</div>
+                <h2 class="text-xl font-bold text-white mb-2" data-i18n="idx.c1.title">Platform War</h2>
+                <p class="text-gray-400 text-sm" data-i18n="idx.c1.desc">Polymarket held 97% of volume in mid-2024. By Jan 2026, Kalshi flipped to 55%. A 450x growth story.</p>
+                <div class="mt-4 text-kalshi text-sm font-medium" data-i18n="idx.c1.link">View dashboard &rarr;</div>
+            </a>
+            <a href="arbitrage.html" class="block bg-dark-800 rounded-xl p-6 border border-gray-700/50 hover:border-poly/50 transition glow-purple">
+                <div class="text-poly text-sm font-semibold mb-2">02</div>
+                <h2 class="text-xl font-bold text-white mb-2" data-i18n="idx.c2.title">Arbitrage Map</h2>
+                <p class="text-gray-400 text-sm" data-i18n="idx.c2.desc">3,407x volume asymmetry in Conflict markets. $390M+ in platform-exclusive markets with zero cross-reference.</p>
+                <div class="mt-4 text-poly text-sm font-medium" data-i18n="idx.c2.link">Explore asymmetries &rarr;</div>
+            </a>
+            <a href="wash-trading.html" class="block bg-dark-800 rounded-xl p-6 border border-gray-700/50 hover:border-red-500/50 transition">
+                <div class="text-red-400 text-sm font-semibold mb-2">03</div>
+                <h2 class="text-xl font-bold text-white mb-2" data-i18n="idx.c3.title">Wash Trading Detector</h2>
+                <p class="text-gray-400 text-sm" data-i18n="idx.c3.desc">EuroLeague at 11,242x turnover. The entire book turns over 11,000+ times. Normal is ~2,000x.</p>
+                <div class="mt-4 text-red-400 text-sm font-medium" data-i18n="idx.c3.link">View leaderboard &rarr;</div>
+            </a>
+            <a href="election.html" class="block bg-dark-800 rounded-xl p-6 border border-gray-700/50 hover:border-blue-500/50 transition">
+                <div class="text-blue-400 text-sm font-semibold mb-2">04</div>
+                <h2 class="text-xl font-bold text-white mb-2" data-i18n="idx.c4.title">Election Impact</h2>
+                <p class="text-gray-400 text-sm" data-i18n="idx.c4.desc">$532M in a single day. Election Day 2024 was the all-time volume record. Elections drive 10-50x multipliers.</p>
+                <div class="mt-4 text-blue-400 text-sm font-medium" data-i18n="idx.c4.link">See the spike &rarr;</div>
+            </a>
+            <a href="concentration.html" class="block bg-dark-800 rounded-xl p-6 border border-gray-700/50 hover:border-green-500/50 transition">
+                <div class="text-green-400 text-sm font-semibold mb-2">05</div>
+                <h2 class="text-xl font-bold text-white mb-2" data-i18n="idx.c5.title">Concentration Risk</h2>
+                <p class="text-gray-400 text-sm" data-i18n="idx.c5.desc">52% of all volume is sports betting. Top 5 subcategories control 63% of the market. "Prediction markets" redefined.</p>
+                <div class="mt-4 text-green-400 text-sm font-medium" data-i18n="idx.c5.link">View treemap &rarr;</div>
+            </a>
+            <a href="timelapse.html" class="block bg-dark-800 rounded-xl p-6 border border-gray-700/50 hover:border-emerald-500/50 transition">
+                <div class="text-emerald-400 text-sm font-semibold mb-2">06</div>
+                <h2 class="text-xl font-bold text-white mb-2" data-i18n="idx.c6.title">Time Lapse</h2>
+                <p class="text-gray-400 text-sm" data-i18n="idx.c6.desc">Watch 1,681 days of market evolution in an animated treemap. From Kalshi-only 2021 to the 2024 election explosion.</p>
+                <div class="mt-4 text-emerald-400 text-sm font-medium" data-i18n="idx.c6.link">Watch animation &rarr;</div>
+            </a>
+        </div>
+
+        <div class="bg-dark-800 rounded-xl p-8 border border-gray-700/50">
+            <h2 class="text-lg font-bold text-white mb-4" data-i18n="idx.stats">Key Stats</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                <div>
+                    <div class="text-3xl font-bold text-white">$87B</div>
+                    <div class="text-sm text-gray-400" data-i18n="idx.s1">Total Volume</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-white">1.07M</div>
+                    <div class="text-sm text-gray-400" data-i18n="idx.s2">Daily Records</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-white">1,681</div>
+                    <div class="text-sm text-gray-400" data-i18n="idx.s3">Days Tracked</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-white">120+</div>
+                    <div class="text-sm text-gray-400" data-i18n="idx.s4">Subcategories</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="i18n.js"></script>
+    <script>
+    I18N.init({
+        'idx.title':    '예측 시장 인텔리전스',
+        'idx.subtitle': 'Kalshi와 Polymarket의 100만 건 이상 일별 기록에서 발견된 이상 징후, 비대칭성, 인사이트 (2021~2026)',
+        'idx.c1.title': '플랫폼 전쟁',
+        'idx.c1.desc':  '2024년 중반 Polymarket이 거래량의 97%를 차지. 2026년 1월, Kalshi가 55%로 역전. 450배 성장 스토리.',
+        'idx.c1.link':  '대시보드 보기 \u2192',
+        'idx.c2.title': '차익거래 맵',
+        'idx.c2.desc':  '분쟁 시장에서 3,407배 거래량 비대칭. 교차 참조 없는 플랫폼 독점 시장 $3.9억 이상.',
+        'idx.c2.link':  '비대칭 탐색 \u2192',
+        'idx.c3.title': '워시 트레이딩 탐지기',
+        'idx.c3.desc':  '유로리그 회전율 11,242배. 전체 포지션이 11,000회 이상 회전. 정상 수준은 ~2,000배.',
+        'idx.c3.link':  '리더보드 보기 \u2192',
+        'idx.c4.title': '선거 임팩트',
+        'idx.c4.desc':  '하루 $5.32억. 2024년 선거일은 역대 최고 거래량 기록. 선거가 10~50배 승수 효과 유발.',
+        'idx.c4.link':  '급등 확인 \u2192',
+        'idx.c5.title': '집중도 리스크',
+        'idx.c5.desc':  '전체 거래량의 52%가 스포츠 베팅. 상위 5개 하위 카테고리가 시장의 63%를 장악.',
+        'idx.c5.link':  '트리맵 보기 \u2192',
+        'idx.c6.title': '타임랩스',
+        'idx.c6.desc':  '1,681일간의 시장 진화를 애니메이션 트리맵으로 감상하세요. Kalshi 단독 2021부터 2024 선거 폭발까지.',
+        'idx.c6.link':  '애니메이션 보기 \u2192',
+        'idx.stats':    '주요 통계',
+        'idx.s1':       '총 거래량',
+        'idx.s2':       '일별 기록',
+        'idx.s3':       '추적 일수',
+        'idx.s4':       '하위 카테고리',
+    });
+    </script>
+</body>
+</html>

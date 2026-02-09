@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wash Trading Detector &mdash; PM Intel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 800: '#1a1a2e', 900: '#0f0f1a', 700: '#252547' },
+                        kalshi: '#f59e0b',
+                        poly: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: #0f0f1a; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: #1a1a2e; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #252547; border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #3a3a6a; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+    <nav class="bg-dark-800 border-b border-gray-700/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6 overflow-x-auto">
+            <a href="index.html" class="text-lg font-bold text-white whitespace-nowrap" data-i18n="nav.home">PM Intel</a>
+            <a href="platform-war.html" class="text-sm text-gray-400 hover:text-kalshi whitespace-nowrap" data-i18n="nav.platform-war">Platform War</a>
+            <a href="arbitrage.html" class="text-sm text-gray-400 hover:text-poly whitespace-nowrap" data-i18n="nav.arbitrage">Arbitrage Map</a>
+            <a href="wash-trading.html" class="text-sm text-white font-semibold whitespace-nowrap" data-i18n="nav.wash-trading">Wash Trading</a>
+            <a href="election.html" class="text-sm text-gray-400 hover:text-blue-400 whitespace-nowrap" data-i18n="nav.election">Election Impact</a>
+            <a href="concentration.html" class="text-sm text-gray-400 hover:text-green-400 whitespace-nowrap" data-i18n="nav.concentration">Concentration</a>
+            <a href="timelapse.html" class="text-sm text-gray-400 hover:text-emerald-400 whitespace-nowrap" data-i18n="nav.timelapse">Time Lapse</a>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-10">
+
+        <!-- Header -->
+        <div class="mb-10">
+            <h1 class="text-4xl font-bold text-white mb-3" data-i18n="wt.title">Wash Trading Detector</h1>
+            <p class="text-gray-400 max-w-3xl text-base leading-relaxed" data-i18n-html="wt.subtitle">
+                The <span class="text-white font-semibold">Turnover Ratio</span> measures how many times a market's
+                entire open interest turns over across its lifetime:
+                <span class="text-white font-mono bg-dark-700 px-2 py-0.5 rounded text-sm">Volume / Avg Daily OI</span>.
+                A healthy, liquid market might see turnover of a few hundred times. When that ratio climbs into the
+                thousands, it means the same contracts are being bought and sold far more frequently than real
+                price-discovery would require &mdash; a classic fingerprint of wash trading or circular volume inflation.
+            </p>
+        </div>
+
+        <!-- Danger Threshold Legend -->
+        <div class="bg-dark-800 rounded-xl p-5 border border-gray-700/50 mb-8">
+            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Danger Thresholds</h2>
+            <div class="flex flex-wrap gap-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-4 h-4 rounded-full bg-red-500 shadow-lg shadow-red-500/30"></div>
+                    <div>
+                        <span class="text-white font-semibold text-sm" data-i18n="wt.critical">Critical</span>
+                        <span class="text-gray-400 text-sm ml-1">&gt; 3,000x turnover</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-4 h-4 rounded-full bg-yellow-500 shadow-lg shadow-yellow-500/30"></div>
+                    <div>
+                        <span class="text-white font-semibold text-sm" data-i18n="wt.suspicious">Suspicious</span>
+                        <span class="text-gray-400 text-sm ml-1">1,500 &ndash; 3,000x turnover</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-4 h-4 rounded-full bg-green-500 shadow-lg shadow-green-500/30"></div>
+                    <div>
+                        <span class="text-white font-semibold text-sm" data-i18n="wt.normal">Normal</span>
+                        <span class="text-gray-400 text-sm ml-1">&lt; 1,500x turnover</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats Row (filled dynamically) -->
+        <div id="stats-row" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-dark-800 rounded-xl p-5 border border-gray-700/50 text-center">
+                <div id="stat-total" class="text-2xl font-bold text-white">--</div>
+                <div class="text-xs text-gray-400 mt-1" data-i18n="wt.stat.total">Markets Analyzed</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-5 border border-red-500/30 text-center">
+                <div id="stat-critical" class="text-2xl font-bold text-red-400">--</div>
+                <div class="text-xs text-gray-400 mt-1" data-i18n="wt.stat.critical">Critical (&gt;3,000x)</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-5 border border-yellow-500/30 text-center">
+                <div id="stat-suspicious" class="text-2xl font-bold text-yellow-400">--</div>
+                <div class="text-xs text-gray-400 mt-1" data-i18n="wt.stat.suspicious">Suspicious (1,500&ndash;3,000x)</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-5 border border-green-500/30 text-center">
+                <div id="stat-normal" class="text-2xl font-bold text-green-400">--</div>
+                <div class="text-xs text-gray-400 mt-1" data-i18n="wt.stat.normal">Normal (&lt;1,500x)</div>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="flex gap-2 mb-6">
+            <button data-filter="all" class="filter-tab active-tab px-5 py-2 rounded-lg text-sm font-semibold bg-dark-700 text-white border border-gray-600 transition" data-i18n="wt.f.all">All</button>
+            <button data-filter="Kalshi" class="filter-tab px-5 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700/50 hover:border-kalshi/50 hover:text-kalshi transition" data-i18n="wt.f.kalshi">Kalshi Only</button>
+            <button data-filter="Polymarket" class="filter-tab px-5 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700/50 hover:border-poly/50 hover:text-poly transition" data-i18n="wt.f.poly">Polymarket Only</button>
+        </div>
+
+        <!-- Horizontal Bar Chart -->
+        <div class="bg-dark-800 rounded-xl p-6 border border-gray-700/50 mb-8">
+            <h2 class="text-lg font-bold text-white mb-1">Top 25 Highest Turnover Markets</h2>
+            <p class="text-sm text-gray-500 mb-5">Bars colored by severity threshold</p>
+            <div style="height: 720px;" class="relative">
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Leaderboard Table -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700/50 overflow-hidden mb-8">
+            <div class="p-6 pb-3">
+                <h2 class="text-lg font-bold text-white mb-1">Turnover Leaderboard</h2>
+                <p class="text-sm text-gray-500">Ranked by turnover ratio, highest first</p>
+            </div>
+            <div class="overflow-x-auto scrollbar-thin">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-700/50 text-left">
+                            <th class="px-6 py-3 text-gray-400 font-semibold text-xs uppercase tracking-wider w-16" data-i18n="wt.th.rank">Rank</th>
+                            <th class="px-6 py-3 text-gray-400 font-semibold text-xs uppercase tracking-wider" data-i18n="wt.th.src">Source</th>
+                            <th class="px-6 py-3 text-gray-400 font-semibold text-xs uppercase tracking-wider" data-i18n="wt.th.cat">Category</th>
+                            <th class="px-6 py-3 text-gray-400 font-semibold text-xs uppercase tracking-wider" data-i18n="wt.th.sub">Subcategory</th>
+                            <th class="px-6 py-3 text-gray-400 font-semibold text-xs uppercase tracking-wider" data-i18n="wt.th.mkt">Market</th>
+                            <th class="px-6 py-3 text-gray-400 font-semibold text-xs uppercase tracking-wider text-right" data-i18n="wt.th.vol">Volume</th>
+                            <th class="px-6 py-3 text-gray-400 font-semibold text-xs uppercase tracking-wider text-right" data-i18n="wt.th.oi">Avg OI</th>
+                            <th class="px-6 py-3 text-gray-400 font-semibold text-xs uppercase tracking-wider text-right" data-i18n="wt.th.days">Active Days</th>
+                            <th class="px-6 py-3 text-gray-400 font-semibold text-xs uppercase tracking-wider text-right" data-i18n="wt.th.turn">Turnover</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body"></tbody>
+                </table>
+            </div>
+            <div id="show-more-container" class="p-4 border-t border-gray-700/50 text-center hidden">
+                <button id="show-more-btn" class="px-6 py-2 bg-dark-700 hover:bg-dark-700/80 text-gray-300 hover:text-white rounded-lg text-sm font-semibold border border-gray-600 transition">
+                    Show more
+                </button>
+                <span id="showing-count" class="text-xs text-gray-500 ml-3"></span>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+    (async function() {
+        // ---- Data Loading ----
+        let allData = [];
+        try {
+            const res = await fetch('data/wash_trading.json');
+            allData = await res.json();
+        } catch (e) {
+            console.error('Failed to load wash_trading.json', e);
+            return;
+        }
+
+        // State
+        let currentFilter = 'all';
+        let visibleRows = 100;
+        const PAGE_SIZE = 100;
+        let chart = null;
+
+        // ---- Helpers ----
+        function formatCompact(n) {
+            const abs = Math.abs(n);
+            if (abs >= 1e12) return '$' + (n / 1e12).toFixed(1) + 'T';
+            if (abs >= 1e9) return '$' + (n / 1e9).toFixed(1) + 'B';
+            if (abs >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+            if (abs >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+            return '$' + n.toFixed(0);
+        }
+
+        function formatOI(n) {
+            const abs = Math.abs(n);
+            if (abs >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+            if (abs >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+            if (abs >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+            return n.toFixed(0);
+        }
+
+        function severityColor(t) {
+            if (t > 3000) return { bg: 'rgba(239,68,68,0.85)', text: 'text-red-400', border: 'border-red-500/30' };
+            if (t >= 1500) return { bg: 'rgba(234,179,8,0.85)', text: 'text-yellow-400', border: 'border-yellow-500/30' };
+            return { bg: 'rgba(34,197,94,0.85)', text: 'text-green-400', border: 'border-green-500/30' };
+        }
+
+        function sourceHTML(src) {
+            if (src === 'Kalshi') return '<span class="text-kalshi font-semibold">Kalshi</span>';
+            return '<span class="text-poly font-semibold">Polymarket</span>';
+        }
+
+        function getFiltered() {
+            if (currentFilter === 'all') return allData;
+            return allData.filter(d => d.source === currentFilter);
+        }
+
+        // ---- Stats ----
+        function renderStats() {
+            const data = getFiltered();
+            const critical = data.filter(d => d.turnover > 3000).length;
+            const suspicious = data.filter(d => d.turnover >= 1500 && d.turnover <= 3000).length;
+            const normal = data.filter(d => d.turnover < 1500).length;
+            document.getElementById('stat-total').textContent = data.length.toLocaleString();
+            document.getElementById('stat-critical').textContent = critical.toLocaleString();
+            document.getElementById('stat-suspicious').textContent = suspicious.toLocaleString();
+            document.getElementById('stat-normal').textContent = normal.toLocaleString();
+        }
+
+        // ---- Chart ----
+        function renderChart() {
+            const data = getFiltered().slice(0, 25);
+            const labels = data.map(d => d.market + ' (' + d.source + ')');
+            const values = data.map(d => d.turnover);
+            const colors = data.map(d => severityColor(d.turnover).bg);
+
+            if (chart) chart.destroy();
+
+            const ctx = document.getElementById('barChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors,
+                        borderColor: colors.map(c => c.replace('0.85', '1')),
+                        borderWidth: 1,
+                        borderRadius: 3,
+                        barPercentage: 0.75,
+                        categoryPercentage: 0.85
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1a1a2e',
+                            titleColor: '#fff',
+                            bodyColor: '#d1d5db',
+                            borderColor: '#252547',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(ctx) {
+                                    const d = data[ctx.dataIndex];
+                                    return [
+                                        'Turnover: ' + d.turnover.toLocaleString(undefined, {maximumFractionDigits:1}) + 'x',
+                                        'Volume: ' + formatCompact(d.volume),
+                                        'Avg OI: ' + formatOI(d.avg_oi),
+                                        'Active Days: ' + d.days
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: {
+                                color: '#9ca3af',
+                                font: { size: 11 },
+                                callback: v => v.toLocaleString() + 'x'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Turnover Ratio (Volume / Avg OI)',
+                                color: '#6b7280',
+                                font: { size: 12 }
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: {
+                                color: '#d1d5db',
+                                font: { size: 11 },
+                                autoSkip: false,
+                                callback: function(value, index) {
+                                    const label = this.getLabelForValue(value);
+                                    return label.length > 38 ? label.slice(0, 35) + '...' : label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ---- Table ----
+        function renderTable() {
+            const data = getFiltered();
+            const show = data.slice(0, visibleRows);
+            const tbody = document.getElementById('leaderboard-body');
+            let html = '';
+
+            show.forEach((d, i) => {
+                const sv = severityColor(d.turnover);
+                const rowBg = i % 2 === 0 ? 'bg-dark-800' : 'bg-dark-900/50';
+                html += `
+                <tr class="${rowBg} border-b border-gray-700/20 hover:bg-dark-700/40 transition-colors">
+                    <td class="px-6 py-3 text-gray-500 font-mono text-xs">${i + 1}</td>
+                    <td class="px-6 py-3">${sourceHTML(d.source)}</td>
+                    <td class="px-6 py-3 text-gray-300">${d.category}</td>
+                    <td class="px-6 py-3 text-gray-400">${d.subcategory}</td>
+                    <td class="px-6 py-3 text-white font-medium max-w-[240px] truncate" title="${d.market}">${d.market}</td>
+                    <td class="px-6 py-3 text-gray-300 text-right font-mono">${formatCompact(d.volume)}</td>
+                    <td class="px-6 py-3 text-gray-400 text-right font-mono">${formatOI(d.avg_oi)}</td>
+                    <td class="px-6 py-3 text-gray-400 text-right">${d.days}</td>
+                    <td class="px-6 py-3 text-right font-bold font-mono ${sv.text}">${d.turnover.toLocaleString(undefined, {maximumFractionDigits:1})}x</td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+
+            // Show more button
+            const container = document.getElementById('show-more-container');
+            const countLabel = document.getElementById('showing-count');
+            if (data.length > visibleRows) {
+                container.classList.remove('hidden');
+                countLabel.textContent = `Showing ${visibleRows} of ${data.length}`;
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        // ---- Filter Tabs ----
+        document.querySelectorAll('.filter-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Update active state
+                document.querySelectorAll('.filter-tab').forEach(b => {
+                    b.classList.remove('active-tab', 'bg-dark-700', 'text-white', 'border-gray-600');
+                    b.classList.add('bg-dark-800', 'text-gray-400', 'border-gray-700/50');
+                });
+                btn.classList.add('active-tab', 'bg-dark-700', 'text-white', 'border-gray-600');
+                btn.classList.remove('bg-dark-800', 'text-gray-400', 'border-gray-700/50');
+
+                currentFilter = btn.dataset.filter;
+                visibleRows = PAGE_SIZE;
+                renderStats();
+                renderChart();
+                renderTable();
+            });
+        });
+
+        // ---- Show More ----
+        document.getElementById('show-more-btn').addEventListener('click', () => {
+            visibleRows += PAGE_SIZE;
+            renderTable();
+        });
+
+        // ---- Initial Render ----
+        renderStats();
+        renderChart();
+        renderTable();
+    })();
+    </script>
+    <script src="i18n.js"></script>
+    <script>
+    I18N.init({
+        'wt.title':      '워시 트레이딩 탐지기',
+        'wt.subtitle':   '회전율 = 거래량 / 평균 일일 미결제약정. 극단적으로 높은 값은 워시 트레이딩이나 인위적 거래량 부풀리기를 의미할 수 있습니다.',
+        'wt.critical':   '위험 (>3,000배)',
+        'wt.suspicious': '의심 (1,500~3,000배)',
+        'wt.normal':     '정상 (<1,500배)',
+        'wt.f.all':      '전체',
+        'wt.f.kalshi':   'Kalshi만',
+        'wt.f.poly':     'Polymarket만',
+        'wt.th.rank':    '순위',
+        'wt.th.src':     '거래소',
+        'wt.th.cat':     '카테고리',
+        'wt.th.sub':     '하위 카테고리',
+        'wt.th.mkt':     '시장',
+        'wt.th.vol':     '거래량',
+        'wt.th.oi':      '평균 OI',
+        'wt.th.days':    '활성 일수',
+        'wt.th.turn':    '회전율',
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbitrage Map - PM Intel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 800: '#1a1a2e', 900: '#0f0f1a', 700: '#252547' },
+                        kalshi: '#f59e0b',
+                        poly: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: #0f0f1a; }
+        .treemap-cell {
+            position: absolute;
+            overflow: hidden;
+            cursor: pointer;
+            transition: filter 0.2s, box-shadow 0.2s;
+            border: 1px solid rgba(0,0,0,0.4);
+        }
+        .treemap-cell:hover {
+            filter: brightness(1.3);
+            box-shadow: 0 0 16px rgba(255,255,255,0.15);
+            z-index: 10;
+        }
+        .treemap-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            text-align: center;
+            pointer-events: none;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.85);
+        }
+        .tooltip-box {
+            position: fixed;
+            z-index: 100;
+            background: #1a1a2e;
+            border: 1px solid #252547;
+            border-radius: 8px;
+            padding: 10px 14px;
+            pointer-events: none;
+            font-size: 13px;
+            max-width: 320px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            display: none;
+        }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: #1a1a2e; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #252547; border-radius: 3px; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+    <nav class="bg-dark-800 border-b border-gray-700/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6 overflow-x-auto">
+            <a href="index.html" class="text-lg font-bold text-white whitespace-nowrap" data-i18n="nav.home">PM Intel</a>
+            <a href="platform-war.html" class="text-sm text-gray-400 hover:text-kalshi whitespace-nowrap" data-i18n="nav.platform-war">Platform War</a>
+            <a href="arbitrage.html" class="text-sm text-white font-semibold whitespace-nowrap" data-i18n="nav.arbitrage">Arbitrage Map</a>
+            <a href="wash-trading.html" class="text-sm text-gray-400 hover:text-red-400 whitespace-nowrap" data-i18n="nav.wash-trading">Wash Trading</a>
+            <a href="election.html" class="text-sm text-gray-400 hover:text-blue-400 whitespace-nowrap" data-i18n="nav.election">Election Impact</a>
+            <a href="concentration.html" class="text-sm text-gray-400 hover:text-green-400 whitespace-nowrap" data-i18n="nav.concentration">Concentration</a>
+            <a href="timelapse.html" class="text-sm text-gray-400 hover:text-emerald-400 whitespace-nowrap" data-i18n="nav.timelapse">Time Lapse</a>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-10">
+        <div class="mb-8">
+            <h1 class="text-4xl font-bold text-white mb-3" data-i18n="arb.title">Arbitrage Map</h1>
+            <p class="text-lg text-gray-400 max-w-3xl" data-i18n-html="arb.subtitle">
+                Each rectangle represents a market subcategory, sized by total volume. Color shows which platform dominates:
+                <span class="text-kalshi font-semibold">amber = Kalshi leads</span>,
+                <span class="text-poly font-semibold">purple = Polymarket leads</span>,
+                <span class="text-red-400 font-semibold">red = platform exclusive</span>.
+                Deeper color saturation = more extreme ratio.
+            </p>
+        </div>
+
+        <!-- Legend & stats -->
+        <div class="grid md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-dark-800 rounded-xl p-4 border border-poly/30">
+                <div id="stat-poly-count" class="text-2xl font-bold text-poly">--</div>
+                <div class="text-sm text-gray-400" data-i18n="arb.s1">Polymarket leads</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-4 border border-kalshi/30">
+                <div id="stat-kalshi-count" class="text-2xl font-bold text-kalshi">--</div>
+                <div class="text-sm text-gray-400" data-i18n="arb.s2">Kalshi leads</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-4 border border-red-500/30">
+                <div id="stat-exclusive" class="text-2xl font-bold text-red-400">--</div>
+                <div class="text-sm text-gray-400" data-i18n="arb.s3">Platform exclusive</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-4 border border-gray-700/50">
+                <div id="stat-max-ratio" class="text-2xl font-bold text-white">--</div>
+                <div class="text-sm text-gray-400" data-i18n="arb.s4">Most extreme ratio</div>
+            </div>
+        </div>
+
+        <!-- Filter -->
+        <div class="flex flex-wrap gap-3 mb-6">
+            <button data-filter="all" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-poly text-white transition" data-i18n="arb.f.all">All Markets</button>
+            <button data-filter="polymarket" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white transition" data-i18n="arb.f.poly">Polymarket Leads</button>
+            <button data-filter="kalshi" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white transition" data-i18n="arb.f.kalshi">Kalshi Leads</button>
+            <button data-filter="exclusive" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white transition" data-i18n="arb.f.excl">Platform Exclusive</button>
+        </div>
+
+        <!-- Treemap -->
+        <div class="bg-dark-800 rounded-xl p-6 border border-gray-700/50 mb-8">
+            <div id="treemapContainer" class="relative w-full rounded-lg overflow-hidden" style="height: 560px; background: #0f0f1a;"></div>
+        </div>
+
+        <!-- Detail panel on click -->
+        <div id="detailPanel" class="hidden bg-dark-800 rounded-xl p-6 border border-gray-700/50 mb-8">
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <div class="flex items-center gap-3 mb-4">
+                        <div id="detail-dot" class="w-4 h-4 rounded-full"></div>
+                        <h2 id="detail-title" class="text-xl font-bold text-white"></h2>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400" data-i18n="arb.d.cat">Category</span>
+                            <span id="detail-cat" class="text-white font-medium"></span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400" data-i18n="arb.d.kvol">Kalshi Volume</span>
+                            <span id="detail-kalshi" class="text-kalshi font-mono font-semibold"></span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400" data-i18n="arb.d.pvol">Polymarket Volume</span>
+                            <span id="detail-poly" class="text-poly font-mono font-semibold"></span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400" data-i18n="arb.d.total">Total Volume</span>
+                            <span id="detail-total" class="text-white font-mono font-semibold"></span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400" data-i18n="arb.d.ratio">Ratio</span>
+                            <span id="detail-ratio" class="font-mono font-bold text-lg"></span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400" data-i18n="arb.d.leader">Dominant Platform</span>
+                            <span id="detail-leader" class="font-semibold"></span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4" data-i18n="arb.d.split">Platform Split</h3>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm text-kalshi w-20">Kalshi</span>
+                            <div class="flex-1 h-6 bg-dark-700 rounded-full overflow-hidden">
+                                <div id="detail-bar-kalshi" class="h-full bg-kalshi rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                            <span id="detail-pct-kalshi" class="text-sm text-kalshi w-14 text-right font-mono"></span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm text-poly w-20">Polymarket</span>
+                            <div class="flex-1 h-6 bg-dark-700 rounded-full overflow-hidden">
+                                <div id="detail-bar-poly" class="h-full bg-poly rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                            <span id="detail-pct-poly" class="text-sm text-poly w-14 text-right font-mono"></span>
+                        </div>
+                    </div>
+                    <div id="detail-insight" class="mt-6 p-4 bg-dark-700/50 rounded-lg text-sm text-gray-300 leading-relaxed"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table (compact) -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700/50 overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-700/50">
+                <h2 class="text-lg font-bold text-white" data-i18n="arb.table">All Subcategories</h2>
+            </div>
+            <div class="overflow-x-auto max-h-[480px] overflow-y-auto scrollbar-thin">
+                <table class="w-full text-sm">
+                    <thead class="sticky top-0 bg-dark-800">
+                        <tr class="border-b border-gray-700/50 text-gray-400 text-left">
+                            <th class="px-4 py-2" data-i18n="arb.th.cat">Category</th>
+                            <th class="px-4 py-2" data-i18n="arb.th.sub">Subcategory</th>
+                            <th class="px-4 py-2 text-right" data-i18n="arb.th.k">Kalshi</th>
+                            <th class="px-4 py-2 text-right" data-i18n="arb.th.p">Polymarket</th>
+                            <th class="px-4 py-2 text-right" data-i18n="arb.th.ratio">Ratio</th>
+                            <th class="px-4 py-2" data-i18n="arb.th.leader">Leader</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <div id="tooltip" class="tooltip-box"></div>
+
+    <script>
+    let rawData = [];
+    let filtered = [];
+    let activeFilter = 'all';
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function fmtDollar(v) {
+        if (v === 0) return '$0';
+        if (v >= 1e9) return '$' + (v / 1e9).toFixed(1).replace(/\.0$/, '') + 'B';
+        if (v >= 1e6) return '$' + (v / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+        if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
+        return '$' + v.toLocaleString();
+    }
+
+    function fmtRatio(r) {
+        if (r === null) return 'EXCLUSIVE';
+        return r.toLocaleString(undefined, { maximumFractionDigits: 1 }) + 'x';
+    }
+
+    function getColor(item) {
+        const isExclusive = item.leader.includes('-only');
+        if (isExclusive) {
+            return { bg: '#991b1b', bgLight: '#dc2626' };
+        }
+        const ratio = item.ratio || 1;
+        if (item.leader === 'Polymarket') {
+            // More extreme = more saturated purple
+            const intensity = Math.min(1, Math.log10(Math.max(ratio, 1)) / 4);
+            const r = Math.round(40 + intensity * 99);
+            const g = Math.round(20 + (1 - intensity) * 72);
+            const b = Math.round(120 + intensity * 126);
+            return {
+                bg: `rgb(${r}, ${g}, ${b})`,
+                bgLight: `rgb(${r + 30}, ${g + 20}, ${b + 20})`
+            };
+        } else {
+            // More extreme = more saturated amber
+            const intensity = Math.min(1, Math.log10(Math.max(ratio, 1)) / 4);
+            const r = Math.round(120 + intensity * 125);
+            const g = Math.round(80 + intensity * 78);
+            const b = Math.round(10 + (1 - intensity) * 30);
+            return {
+                bg: `rgb(${r}, ${g}, ${b})`,
+                bgLight: `rgb(${r + 20}, ${g + 20}, ${b + 10})`
+            };
+        }
+    }
+
+    // ── Squarified treemap ──────────────────────────────────────────────────
+    function squarify(items, rect) {
+        if (!items.length) return [];
+        const totalValue = items.reduce((s, d) => s + d.total, 0);
+        if (totalValue <= 0) return [];
+        const totalArea = rect.w * rect.h;
+        const mapped = items.map(d => ({
+            ...d,
+            area: (d.total / totalValue) * totalArea
+        })).filter(d => d.area > 0);
+        mapped.sort((a, b) => b.area - a.area);
+        const placed = [];
+        layoutStrip(mapped, rect, placed);
+        return placed;
+    }
+
+    function layoutStrip(items, rect, placed) {
+        if (!items.length) return;
+        if (items.length === 1) {
+            placed.push({ ...items[0], x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+            return;
+        }
+        const isWide = rect.w >= rect.h;
+        const side = isWide ? rect.h : rect.w;
+        let strip = [items[0]];
+        let stripArea = items[0].area;
+        let bestWorst = worstRatio(strip, stripArea, side);
+        for (let i = 1; i < items.length; i++) {
+            const candidateArea = stripArea + items[i].area;
+            const candidate = [...strip, items[i]];
+            const w = worstRatio(candidate, candidateArea, side);
+            if (w <= bestWorst) {
+                strip.push(items[i]);
+                stripArea = candidateArea;
+                bestWorst = w;
+            } else break;
+        }
+        const stripLen = stripArea / side;
+        let offset = 0;
+        for (const item of strip) {
+            const itemLen = item.area / stripLen;
+            if (isWide) {
+                placed.push({ ...item, x: rect.x, y: rect.y + offset, w: stripLen, h: itemLen });
+            } else {
+                placed.push({ ...item, x: rect.x + offset, y: rect.y, w: itemLen, h: stripLen });
+            }
+            offset += itemLen;
+        }
+        const remaining = items.slice(strip.length);
+        if (!remaining.length) return;
+        const newRect = isWide
+            ? { x: rect.x + stripLen, y: rect.y, w: rect.w - stripLen, h: rect.h }
+            : { x: rect.x, y: rect.y + stripLen, w: rect.w, h: rect.h - stripLen };
+        layoutStrip(remaining, newRect, placed);
+    }
+
+    function worstRatio(strip, stripArea, side) {
+        const s2 = side * side;
+        const a2 = stripArea * stripArea;
+        let worst = 0;
+        for (const item of strip) {
+            worst = Math.max(worst, (s2 * item.area) / a2, a2 / (s2 * item.area));
+        }
+        return worst;
+    }
+
+    // ── Render treemap ──────────────────────────────────────────────────────
+    function renderTreemap() {
+        const container = document.getElementById('treemapContainer');
+        container.innerHTML = '';
+        const tooltip = document.getElementById('tooltip');
+        const rect = { x: 0, y: 0, w: container.clientWidth, h: container.clientHeight };
+        const cells = squarify(filtered, rect);
+
+        cells.forEach((cell, i) => {
+            const col = getColor(cell);
+            const div = document.createElement('div');
+            div.className = 'treemap-cell';
+            div.style.left = cell.x + 'px';
+            div.style.top = cell.y + 'px';
+            div.style.width = cell.w + 'px';
+            div.style.height = cell.h + 'px';
+            div.style.background = `linear-gradient(135deg, ${col.bgLight}, ${col.bg})`;
+
+            const minDim = Math.min(cell.w, cell.h);
+            const area = cell.w * cell.h;
+            const label = document.createElement('div');
+            label.className = 'treemap-label';
+
+            if (minDim > 60 && area > 5000) {
+                const nameSize = Math.max(10, Math.min(18, minDim / 6));
+                const ratioSize = Math.max(12, Math.min(22, minDim / 4.5));
+                const catSize = Math.max(8, Math.min(12, minDim / 9));
+                label.innerHTML = `
+                    <span style="font-size:${catSize}px; color:rgba(255,255,255,0.6); line-height:1;">${cell.category}</span>
+                    <span style="font-size:${nameSize}px; font-weight:700; color:#fff; line-height:1.2; margin-top:2px;">${cell.subcategory}</span>
+                    <span style="font-size:${ratioSize}px; font-weight:800; color:rgba(255,255,255,0.95); margin-top:4px;">${fmtRatio(cell.ratio)}</span>
+                    <span style="font-size:${catSize}px; color:rgba(255,255,255,0.5); margin-top:2px;">${fmtDollar(cell.total)}</span>
+                `;
+            } else if (minDim > 35 && area > 2000) {
+                const nameSize = Math.max(9, Math.min(13, minDim / 5));
+                label.innerHTML = `
+                    <span style="font-size:${nameSize}px; font-weight:700; color:#fff; line-height:1.1;">${cell.subcategory}</span>
+                    <span style="font-size:${Math.max(8, nameSize - 1)}px; color:rgba(255,255,255,0.8);">${fmtRatio(cell.ratio)}</span>
+                `;
+            } else if (minDim > 20 && area > 600) {
+                label.innerHTML = `<span style="font-size:9px; font-weight:600; color:#fff;">${cell.subcategory}</span>`;
+            }
+
+            div.appendChild(label);
+
+            // Hover tooltip
+            div.addEventListener('mouseenter', (e) => {
+                tooltip.style.display = 'block';
+                tooltip.innerHTML = `
+                    <div class="text-white font-bold mb-1">${cell.category} &rsaquo; ${cell.subcategory}</div>
+                    <div class="text-kalshi">Kalshi: ${fmtDollar(cell.kalshi)}</div>
+                    <div class="text-poly">Polymarket: ${fmtDollar(cell.polymarket)}</div>
+                    <div class="text-gray-400 mt-1">Ratio: <span class="text-white font-semibold">${fmtRatio(cell.ratio)}</span> &mdash; ${cell.leader}</div>
+                `;
+            });
+            div.addEventListener('mousemove', (e) => {
+                tooltip.style.left = (e.clientX + 14) + 'px';
+                tooltip.style.top = (e.clientY - 10) + 'px';
+            });
+            div.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+
+            // Click to show detail
+            div.addEventListener('click', () => showDetail(cell));
+
+            container.appendChild(div);
+        });
+    }
+
+    // ── Detail panel ────────────────────────────────────────────────────────
+    function showDetail(item) {
+        const panel = document.getElementById('detailPanel');
+        panel.classList.remove('hidden');
+
+        const col = getColor(item);
+        document.getElementById('detail-dot').style.background = col.bg;
+        document.getElementById('detail-title').textContent = item.subcategory;
+        document.getElementById('detail-cat').textContent = item.category;
+        document.getElementById('detail-kalshi').textContent = fmtDollar(item.kalshi);
+        document.getElementById('detail-poly').textContent = fmtDollar(item.polymarket);
+        document.getElementById('detail-total').textContent = fmtDollar(item.total);
+
+        const ratioEl = document.getElementById('detail-ratio');
+        ratioEl.textContent = fmtRatio(item.ratio);
+        if (item.leader === 'Polymarket') ratioEl.className = 'font-mono font-bold text-lg text-poly';
+        else if (item.leader === 'Kalshi') ratioEl.className = 'font-mono font-bold text-lg text-kalshi';
+        else ratioEl.className = 'font-mono font-bold text-lg text-red-400';
+
+        const leaderEl = document.getElementById('detail-leader');
+        leaderEl.textContent = item.leader;
+        if (item.leader === 'Polymarket') leaderEl.className = 'font-semibold text-poly';
+        else if (item.leader === 'Kalshi') leaderEl.className = 'font-semibold text-kalshi';
+        else leaderEl.className = 'font-semibold text-red-400';
+
+        const total = item.kalshi + item.polymarket;
+        const kPct = total > 0 ? (item.kalshi / total * 100) : 0;
+        const pPct = total > 0 ? (item.polymarket / total * 100) : 0;
+        document.getElementById('detail-bar-kalshi').style.width = kPct + '%';
+        document.getElementById('detail-bar-poly').style.width = pPct + '%';
+        document.getElementById('detail-pct-kalshi').textContent = kPct.toFixed(1) + '%';
+        document.getElementById('detail-pct-poly').textContent = pPct.toFixed(1) + '%';
+
+        let insight = '';
+        if (item.ratio === null) {
+            insight = `This market exists exclusively on ${item.leader.replace('-only', '')} with ${fmtDollar(item.total)} in volume. No counterpart exists on the other platform, meaning there is no cross-platform price discovery.`;
+        } else if (item.ratio > 100) {
+            insight = `A ${fmtRatio(item.ratio)} volume ratio is extreme. ${item.leader} handles virtually all the liquidity. Traders on the smaller platform face thin orderbooks and potential slippage.`;
+        } else if (item.ratio > 10) {
+            insight = `${item.leader} has a significant volume lead at ${fmtRatio(item.ratio)}. Price discrepancies between platforms in this market could represent arbitrage opportunities.`;
+        } else {
+            insight = `This market is relatively balanced across platforms with a ${fmtRatio(item.ratio)} ratio. Both venues provide meaningful liquidity.`;
+        }
+        document.getElementById('detail-insight').textContent = insight;
+
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ── Table ───────────────────────────────────────────────────────────────
+    function renderTable() {
+        const tbody = document.getElementById('table-body');
+        const sorted = [...filtered].sort((a, b) => (b.ratio || 999999) - (a.ratio || 999999));
+        let html = '';
+        sorted.forEach(row => {
+            const rColor = row.ratio === null ? 'text-red-400' : row.ratio > 100 ? 'text-red-400' : row.ratio >= 10 ? 'text-yellow-400' : 'text-green-400';
+            const lColor = row.leader === 'Kalshi' ? 'text-kalshi' : row.leader === 'Polymarket' ? 'text-poly' : 'text-red-400';
+            html += `<tr class="border-b border-gray-700/30 hover:bg-dark-700/50">
+                <td class="px-4 py-2 text-gray-400">${row.category}</td>
+                <td class="px-4 py-2 text-white font-medium">${row.subcategory}</td>
+                <td class="px-4 py-2 text-right text-kalshi font-mono">${fmtDollar(row.kalshi)}</td>
+                <td class="px-4 py-2 text-right text-poly font-mono">${fmtDollar(row.polymarket)}</td>
+                <td class="px-4 py-2 text-right ${rColor} font-semibold">${fmtRatio(row.ratio)}</td>
+                <td class="px-4 py-2 ${lColor} font-medium">${row.leader}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    // ── Stats ───────────────────────────────────────────────────────────────
+    function updateStats() {
+        const polyLead = rawData.filter(d => d.leader === 'Polymarket').length;
+        const kalshiLead = rawData.filter(d => d.leader === 'Kalshi').length;
+        const exclusive = rawData.filter(d => d.leader.includes('-only')).length;
+        const maxRatio = rawData.filter(d => d.ratio !== null).sort((a, b) => b.ratio - a.ratio)[0];
+
+        document.getElementById('stat-poly-count').textContent = polyLead;
+        document.getElementById('stat-kalshi-count').textContent = kalshiLead;
+        document.getElementById('stat-exclusive').textContent = exclusive;
+        document.getElementById('stat-max-ratio').textContent = maxRatio ? fmtRatio(maxRatio.ratio) : '--';
+    }
+
+    // ── Filters ─────────────────────────────────────────────────────────────
+    function applyFilter() {
+        if (activeFilter === 'all') filtered = [...rawData];
+        else if (activeFilter === 'polymarket') filtered = rawData.filter(d => d.leader === 'Polymarket');
+        else if (activeFilter === 'kalshi') filtered = rawData.filter(d => d.leader === 'Kalshi');
+        else if (activeFilter === 'exclusive') filtered = rawData.filter(d => d.leader.includes('-only'));
+    }
+
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            activeFilter = btn.dataset.filter;
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.classList.remove('bg-poly', 'text-white');
+                b.classList.add('bg-dark-700', 'text-gray-400');
+            });
+            btn.classList.remove('bg-dark-700', 'text-gray-400');
+            btn.classList.add('bg-poly', 'text-white');
+            applyFilter();
+            renderTreemap();
+            renderTable();
+        });
+    });
+
+    // ── Init ────────────────────────────────────────────────────────────────
+    fetch('data/arbitrage.json')
+        .then(r => r.json())
+        .then(data => {
+            rawData = data;
+            applyFilter();
+            updateStats();
+            renderTreemap();
+            renderTable();
+        });
+
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => { if (filtered.length) renderTreemap(); }, 200);
+    });
+    </script>
+<script src="i18n.js"></script>
+<script>
+I18N.init({
+    'arb.title':     '차익거래 맵',
+    'arb.subtitle':  '각 직사각형은 시장 하위 카테고리를 나타내며, 총 거래량에 비례합니다. 색상은 어느 플랫폼이 우위인지 보여줍니다: <span class="text-kalshi font-semibold">황색 = Kalshi 우위</span>, <span class="text-poly font-semibold">보라색 = Polymarket 우위</span>, <span class="text-red-400 font-semibold">빨간색 = 플랫폼 독점</span>. 색상이 진할수록 비율이 더 극단적입니다.',
+    'arb.f.all':     '전체 시장',
+    'arb.f.poly':    'Polymarket 우위',
+    'arb.f.kalshi':  'Kalshi 우위',
+    'arb.f.excl':    '플랫폼 독점',
+    'arb.s1':        'Polymarket 우위',
+    'arb.s2':        'Kalshi 우위',
+    'arb.s3':        '플랫폼 독점',
+    'arb.s4':        '최대 비율',
+    'arb.table':     '전체 하위 카테고리',
+    'arb.th.cat':    '카테고리',
+    'arb.th.sub':    '하위 카테고리',
+    'arb.th.k':      'Kalshi',
+    'arb.th.p':      'Polymarket',
+    'arb.th.ratio':  '비율',
+    'arb.th.leader': '우위',
+    'arb.d.cat':     '카테고리',
+    'arb.d.kvol':    'Kalshi 거래량',
+    'arb.d.pvol':    'Polymarket 거래량',
+    'arb.d.total':   '총 거래량',
+    'arb.d.ratio':   '비율',
+    'arb.d.leader':  '우위 플랫폼',
+    'arb.d.split':   '플랫폼 비율',
+});
+</script>
+</body>
+</html>

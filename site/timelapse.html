@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Lapse &mdash; PM Intel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 800: '#1a1a2e', 900: '#0f0f1a', 700: '#252547' },
+                        kalshi: '#f59e0b',
+                        poly: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: #0f0f1a; }
+        .treemap-cell {
+            position: absolute;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.3);
+        }
+        .treemap-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            text-align: center;
+            pointer-events: none;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+        }
+        #timeSlider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #252547;
+            outline: none;
+        }
+        #timeSlider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #10b981;
+            cursor: pointer;
+            border: 2px solid #0f0f1a;
+        }
+        #timeSlider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #10b981;
+            cursor: pointer;
+            border: 2px solid #0f0f1a;
+        }
+        .ctrl-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: #252547;
+            color: #d1d5db;
+            font-size: 14px;
+            border: 1px solid rgba(255,255,255,0.08);
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            white-space: nowrap;
+        }
+        .ctrl-btn:hover { background: #3a3a6a; color: #fff; }
+        .ctrl-btn.active { background: #10b981; color: #fff; border-color: #10b981; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+    <nav class="bg-dark-800 border-b border-gray-700/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6 overflow-x-auto">
+            <a href="index.html" class="text-lg font-bold text-white whitespace-nowrap" data-i18n="nav.home">PM Intel</a>
+            <a href="platform-war.html" class="text-sm text-gray-400 hover:text-kalshi whitespace-nowrap" data-i18n="nav.platform-war">Platform War</a>
+            <a href="arbitrage.html" class="text-sm text-gray-400 hover:text-poly whitespace-nowrap" data-i18n="nav.arbitrage">Arbitrage Map</a>
+            <a href="wash-trading.html" class="text-sm text-gray-400 hover:text-red-400 whitespace-nowrap" data-i18n="nav.wash-trading">Wash Trading</a>
+            <a href="election.html" class="text-sm text-gray-400 hover:text-blue-400 whitespace-nowrap" data-i18n="nav.election">Election Impact</a>
+            <a href="concentration.html" class="text-sm text-gray-400 hover:text-green-400 whitespace-nowrap" data-i18n="nav.concentration">Concentration</a>
+            <a href="timelapse.html" class="text-sm text-white font-semibold whitespace-nowrap" data-i18n="nav.timelapse">Time Lapse</a>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-10">
+
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-4xl font-bold text-white mb-3" data-i18n="tl.title">Time Lapse</h1>
+            <p class="text-gray-400 max-w-3xl text-base leading-relaxed" data-i18n="tl.subtitle">
+                Watch how prediction market volume distribution across subcategories changes day-by-day from 2021 to 2026. Press play to animate or scrub the timeline manually.
+            </p>
+        </div>
+
+        <!-- Date Display -->
+        <div class="mb-4">
+            <div id="dateDisplay" class="text-5xl font-bold text-white font-mono tracking-wide">Loading...</div>
+        </div>
+
+        <!-- Treemap Container -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700/50 mb-4 overflow-hidden">
+            <div id="treemapContainer" class="relative w-full" style="height: 600px; background: #0f0f1a;"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="bg-dark-800 rounded-xl p-4 border border-gray-700/50 mb-4">
+            <div class="flex items-center gap-3 mb-4 flex-wrap">
+                <button id="btnFirst" class="ctrl-btn" title="First day">&laquo;</button>
+                <button id="btnPrev30" class="ctrl-btn" title="-30 days">-30</button>
+                <button id="btnPrev" class="ctrl-btn" title="-1 day">&lsaquo;</button>
+                <button id="btnPlay" class="ctrl-btn active" data-i18n="tl.play">&#9654; Play</button>
+                <button id="btnNext" class="ctrl-btn" title="+1 day">&rsaquo;</button>
+                <button id="btnNext30" class="ctrl-btn" title="+30 days">+30</button>
+                <button id="btnLast" class="ctrl-btn" title="Last day">&raquo;</button>
+                <div class="flex items-center gap-2 ml-4">
+                    <span class="text-sm text-gray-400" data-i18n="tl.speed">Speed:</span>
+                    <select id="speedSelect" class="bg-dark-700 text-gray-200 text-sm rounded-lg px-3 py-1.5 border border-gray-600/50 outline-none cursor-pointer">
+                        <option value="500">1x</option>
+                        <option value="200" selected>2x</option>
+                        <option value="100">5x</option>
+                        <option value="50">10x</option>
+                    </select>
+                </div>
+            </div>
+            <input type="range" id="timeSlider" min="0" max="0" value="0" class="w-full">
+        </div>
+
+        <!-- Stats Row -->
+        <div class="grid grid-cols-3 gap-4">
+            <div class="bg-dark-800 rounded-xl p-4 border border-gray-700/50 text-center">
+                <div id="statTotal" class="text-2xl font-bold text-white">-</div>
+                <div class="text-sm text-gray-400" data-i18n="tl.total">Total Volume</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-4 border border-gray-700/50 text-center">
+                <div id="statActive" class="text-2xl font-bold text-white">-</div>
+                <div class="text-sm text-gray-400" data-i18n="tl.active">Active Markets</div>
+            </div>
+            <div class="bg-dark-800 rounded-xl p-4 border border-gray-700/50 text-center">
+                <div id="statTop" class="text-2xl font-bold text-white truncate">-</div>
+                <div class="text-sm text-gray-400" data-i18n="tl.top">Top Market</div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+    // =========================================================================
+    //  CATEGORY COLORS
+    // =========================================================================
+    const CATEGORY_COLORS = {
+        'Sports':     { bg: '#22c55e', bgDark: '#166534', text: '#fff' },
+        'Politics':   { bg: '#3b82f6', bgDark: '#1e3a5f', text: '#fff' },
+        'Crypto':     { bg: '#f97316', bgDark: '#7c2d12', text: '#fff' },
+        'Economics':  { bg: '#14b8a6', bgDark: '#134e4a', text: '#fff' },
+        'Culture':    { bg: '#ec4899', bgDark: '#831843', text: '#fff' },
+        'STEM':       { bg: '#06b6d4', bgDark: '#164e63', text: '#fff' },
+        'Financials': { bg: '#eab308', bgDark: '#713f12', text: '#fff' },
+    };
+
+    function getCatColor(name) {
+        return CATEGORY_COLORS[name] || { bg: '#6b7280', bgDark: '#374151', text: '#fff' };
+    }
+
+    // =========================================================================
+    //  SQUARIFIED TREEMAP (for subcategories within each category region)
+    // =========================================================================
+    function squarify(items, rect) {
+        if (!items.length) return [];
+        const totalValue = items.reduce((s, d) => s + d.value, 0);
+        if (totalValue <= 0) return [];
+
+        const totalArea = rect.w * rect.h;
+        const mapped = items.map(d => ({
+            ...d,
+            area: (d.value / totalValue) * totalArea
+        })).filter(d => d.area > 0);
+
+        mapped.sort((a, b) => b.area - a.area);
+
+        const placed = [];
+        layoutStrip(mapped, { x: rect.x, y: rect.y, w: rect.w, h: rect.h }, placed);
+        return placed;
+    }
+
+    function layoutStrip(items, rect, placed) {
+        if (items.length === 0) return;
+        if (items.length === 1) {
+            placed.push({ ...items[0], x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+            return;
+        }
+
+        const isWide = rect.w >= rect.h;
+        const side = isWide ? rect.h : rect.w;
+
+        let strip = [items[0]];
+        let stripArea = items[0].area;
+        let bestWorst = worstRatio(strip, stripArea, side);
+
+        for (let i = 1; i < items.length; i++) {
+            const candidate = [...strip, items[i]];
+            const candidateArea = stripArea + items[i].area;
+            const candidateWorst = worstRatio(candidate, candidateArea, side);
+
+            if (candidateWorst <= bestWorst) {
+                strip.push(items[i]);
+                stripArea = candidateArea;
+                bestWorst = candidateWorst;
+            } else {
+                break;
+            }
+        }
+
+        const stripLen = stripArea / side;
+        let offset = 0;
+
+        for (const item of strip) {
+            const itemLen = item.area / stripLen;
+            if (isWide) {
+                placed.push({ ...item, x: rect.x, y: rect.y + offset, w: stripLen, h: itemLen });
+            } else {
+                placed.push({ ...item, x: rect.x + offset, y: rect.y, w: itemLen, h: stripLen });
+            }
+            offset += itemLen;
+        }
+
+        const remaining = items.slice(strip.length);
+        if (remaining.length === 0) return;
+
+        let newRect;
+        if (isWide) {
+            newRect = { x: rect.x + stripLen, y: rect.y, w: rect.w - stripLen, h: rect.h };
+        } else {
+            newRect = { x: rect.x, y: rect.y + stripLen, w: rect.w, h: rect.h - stripLen };
+        }
+
+        layoutStrip(remaining, newRect, placed);
+    }
+
+    function worstRatio(strip, stripArea, side) {
+        const s2 = side * side;
+        const totalA2 = stripArea * stripArea;
+        let worst = 0;
+        for (const item of strip) {
+            const r1 = (s2 * item.area) / totalA2;
+            const r2 = totalA2 / (s2 * item.area);
+            worst = Math.max(worst, Math.max(r1, r2));
+        }
+        return worst;
+    }
+
+    // =========================================================================
+    //  STABLE BINARY-TREE PARTITION (for category regions)
+    //  Structure is fixed once from all-time totals. Each frame, only the
+    //  split ratios change — categories never swap sides.
+    // =========================================================================
+    function buildTree(catIndices, rect, valueFn) {
+        if (catIndices.length === 0) return null;
+        if (catIndices.length === 1) return { type: 'leaf', catIdx: catIndices[0] };
+
+        const isWide = rect.w >= rect.h;
+        const total = catIndices.reduce((s, ci) => s + valueFn(ci), 0);
+
+        // Find split closest to 50% cumulative value
+        let cum = 0, splitAt = 1, bestDiff = Infinity;
+        for (let k = 1; k < catIndices.length; k++) {
+            cum += valueFn(catIndices[k - 1]);
+            const diff = Math.abs(cum / total - 0.5);
+            if (diff < bestDiff) { bestDiff = diff; splitAt = k; }
+        }
+
+        const left = catIndices.slice(0, splitAt);
+        const right = catIndices.slice(splitAt);
+        const leftTotal = left.reduce((s, ci) => s + valueFn(ci), 0);
+        const ratio = leftTotal / total;
+
+        let lr, rr;
+        if (isWide) {
+            lr = { x: rect.x, y: rect.y, w: rect.w * ratio, h: rect.h };
+            rr = { x: rect.x + rect.w * ratio, y: rect.y, w: rect.w * (1 - ratio), h: rect.h };
+        } else {
+            lr = { x: rect.x, y: rect.y, w: rect.w, h: rect.h * ratio };
+            rr = { x: rect.x, y: rect.y + rect.h * ratio, w: rect.w, h: rect.h * (1 - ratio) };
+        }
+
+        return {
+            type: 'split',
+            isWide,
+            left:  buildTree(left, lr, valueFn),
+            right: buildTree(right, rr, valueFn),
+        };
+    }
+
+    function sumTree(node, valueFn) {
+        if (!node) return 0;
+        if (node.type === 'leaf') return valueFn(node.catIdx);
+        return sumTree(node.left, valueFn) + sumTree(node.right, valueFn);
+    }
+
+    function replayTree(node, rect, valueFn, out) {
+        if (!node) return;
+        if (node.type === 'leaf') {
+            out[node.catIdx] = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
+            return;
+        }
+
+        const leftVal  = sumTree(node.left, valueFn);
+        const rightVal = sumTree(node.right, valueFn);
+        const total = leftVal + rightVal;
+
+        // If both sides zero, give each half (keeps backgrounds visible)
+        const ratio = total > 0 ? leftVal / total : 0.5;
+
+        let lr, rr;
+        if (node.isWide) {
+            lr = { x: rect.x, y: rect.y, w: rect.w * ratio, h: rect.h };
+            rr = { x: rect.x + rect.w * ratio, y: rect.y, w: rect.w * (1 - ratio), h: rect.h };
+        } else {
+            lr = { x: rect.x, y: rect.y, w: rect.w, h: rect.h * ratio };
+            rr = { x: rect.x, y: rect.y + rect.h * ratio, w: rect.w, h: rect.h * (1 - ratio) };
+        }
+
+        replayTree(node.left, lr, valueFn, out);
+        replayTree(node.right, rr, valueFn, out);
+    }
+
+    // =========================================================================
+    //  FORMATTING
+    // =========================================================================
+    function fmtBillions(v) {
+        if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+        if (v >= 1e6) return '$' + (v / 1e6).toFixed(0) + 'M';
+        if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
+        return '$' + Math.round(v);
+    }
+
+    // =========================================================================
+    //  GLOBALS
+    // =========================================================================
+    let DATA = null;
+    let frameIndex = 0;
+    let playing = false;
+    let playTimer = null;
+    let cells = [];           // pre-created DOM elements for subcategories
+    let catBgDivs = [];       // background divs for category regions
+    let catLabelDivs = [];    // label divs for category names
+    let catGroups = [];        // [{name, indices, allTimeTotal}, ...] sorted desc
+    let allTimeTotals = [];    // per-subcategory all-time totals
+    let catTree = null;        // binary-tree structure (built once)
+    let transitionMs = 300;
+    const CAT_PAD = 2;
+
+    const container   = document.getElementById('treemapContainer');
+    const slider      = document.getElementById('timeSlider');
+    const dateDisplay = document.getElementById('dateDisplay');
+    const btnPlay     = document.getElementById('btnPlay');
+    const speedSelect = document.getElementById('speedSelect');
+    const statTotal   = document.getElementById('statTotal');
+    const statActive  = document.getElementById('statActive');
+    const statTop     = document.getElementById('statTop');
+
+    // =========================================================================
+    //  INIT
+    // =========================================================================
+    async function init() {
+        try {
+            const resp = await fetch('data/timelapse.json');
+            DATA = await resp.json();
+        } catch (e) {
+            container.innerHTML = '<div class="flex items-center justify-center h-full text-red-400">Failed to load data/timelapse.json</div>';
+            return;
+        }
+
+        slider.max = DATA.dates.length - 1;
+        slider.value = 0;
+
+        // Compute all-time totals per subcategory
+        const n = DATA.subcategories.length;
+        allTimeTotals = new Array(n).fill(0);
+        for (let d = 0; d < DATA.volumes.length; d++) {
+            const row = DATA.volumes[d];
+            for (let i = 0; i < n; i++) allTimeTotals[i] += row[i];
+        }
+
+        // Group subcategories by category
+        const catMap = {};
+        for (let i = 0; i < n; i++) {
+            const cat = DATA.subcategories[i].cat;
+            if (!catMap[cat]) catMap[cat] = { name: cat, indices: [], allTimeTotal: 0 };
+            catMap[cat].indices.push(i);
+            catMap[cat].allTimeTotal += allTimeTotals[i];
+        }
+        catGroups = Object.values(catMap).sort((a, b) => b.allTimeTotal - a.allTimeTotal);
+
+        // Within each category, sort subcats by all-time total desc
+        for (const g of catGroups) {
+            g.indices.sort((a, b) => allTimeTotals[b] - allTimeTotals[a]);
+        }
+
+        // Build stable binary-tree partition (structure fixed forever)
+        const initRect = { x: 0, y: 0, w: container.clientWidth, h: container.clientHeight };
+        const catIdxList = catGroups.map((_, i) => i);
+        catTree = buildTree(catIdxList, initRect, ci => catGroups[ci].allTimeTotal);
+
+        // Create category background + label divs
+        for (const g of catGroups) {
+            const col = getCatColor(g.name);
+
+            const bg = document.createElement('div');
+            bg.style.position = 'absolute';
+            bg.style.borderRadius = '4px';
+            bg.style.border = `1px solid ${col.bg}33`;
+            bg.style.background = `${col.bgDark}22`;
+            bg.style.transition = `left ${transitionMs}ms ease, top ${transitionMs}ms ease, width ${transitionMs}ms ease, height ${transitionMs}ms ease`;
+            bg.style.zIndex = '0';
+            container.appendChild(bg);
+            catBgDivs.push(bg);
+
+            const lbl = document.createElement('div');
+            lbl.style.position = 'absolute';
+            lbl.style.fontSize = '10px';
+            lbl.style.fontWeight = '600';
+            lbl.style.color = `${col.bg}88`;
+            lbl.style.padding = '3px 5px';
+            lbl.style.pointerEvents = 'none';
+            lbl.style.zIndex = '1';
+            lbl.style.transition = `left ${transitionMs}ms ease, top ${transitionMs}ms ease`;
+            lbl.textContent = g.name;
+            container.appendChild(lbl);
+            catLabelDivs.push(lbl);
+        }
+
+        // Pre-create DOM cells for each subcategory
+        for (let i = 0; i < n; i++) {
+            const div = document.createElement('div');
+            div.className = 'treemap-cell';
+            div.style.transition = `left ${transitionMs}ms ease, top ${transitionMs}ms ease, width ${transitionMs}ms ease, height ${transitionMs}ms ease, opacity ${transitionMs}ms ease`;
+            div.style.display = 'none';
+            div.style.zIndex = '2';
+
+            const label = document.createElement('div');
+            label.className = 'treemap-label';
+            div.appendChild(label);
+
+            container.appendChild(div);
+            cells.push({ div, label });
+        }
+
+        renderFrame(0);
+    }
+
+    // =========================================================================
+    //  RENDER A SINGLE FRAME
+    //  1. Replay binary tree with current category totals → dynamic cat rects
+    //  2. Squarify subcategories within each category rect
+    // =========================================================================
+    function renderFrame(idx) {
+        frameIndex = idx;
+        const volumes = DATA.volumes[idx];
+        const date = DATA.dates[idx];
+
+        dateDisplay.textContent = date;
+        slider.value = idx;
+
+        // Current-day totals per category group
+        const catDayTotals = catGroups.map(g => {
+            let s = 0;
+            for (const i of g.indices) s += volumes[i];
+            return s;
+        });
+
+        // Replay tree → dynamic category rects
+        const fullRect = { x: 0, y: 0, w: container.clientWidth, h: container.clientHeight };
+        const catRects = {};
+        replayTree(catTree, fullRect, ci => catDayTotals[ci], catRects);
+
+        // Update category backgrounds + labels
+        for (let ci = 0; ci < catGroups.length; ci++) {
+            const cr = catRects[ci];
+            if (!cr || cr.w < 1 || cr.h < 1) {
+                catBgDivs[ci].style.display = 'none';
+                catLabelDivs[ci].style.display = 'none';
+                continue;
+            }
+            catBgDivs[ci].style.display = 'block';
+            catBgDivs[ci].style.left = cr.x + 'px';
+            catBgDivs[ci].style.top = cr.y + 'px';
+            catBgDivs[ci].style.width = cr.w + 'px';
+            catBgDivs[ci].style.height = cr.h + 'px';
+            catLabelDivs[ci].style.display = 'block';
+            catLabelDivs[ci].style.left = (cr.x + 2) + 'px';
+            catLabelDivs[ci].style.top = (cr.y + 1) + 'px';
+        }
+
+        // Lay out subcategories within each category rect
+        const placedSet = new Set();
+        let totalVolume = 0;
+        let topItem = null;
+
+        for (let ci = 0; ci < catGroups.length; ci++) {
+            const group = catGroups[ci];
+            const cr = catRects[ci];
+            if (!cr || cr.w < 2 || cr.h < 2) continue;
+
+            const inner = {
+                x: cr.x + CAT_PAD,
+                y: cr.y + CAT_PAD,
+                w: Math.max(0, cr.w - CAT_PAD * 2),
+                h: Math.max(0, cr.h - CAT_PAD * 2),
+            };
+
+            const items = [];
+            for (const i of group.indices) {
+                const v = volumes[i];
+                if (v > 0) {
+                    items.push({ idx: i, name: DATA.subcategories[i].sub, cat: group.name, value: v });
+                    totalVolume += v;
+                    if (!topItem || v > topItem.value) topItem = { name: DATA.subcategories[i].sub, value: v };
+                }
+            }
+
+            if (items.length === 0) continue;
+
+            const placed = squarify(items, inner);
+            const catTotal = items.reduce((s, d) => s + d.value, 0);
+
+            for (const p of placed) {
+                placedSet.add(p.idx);
+                const cell = cells[p.idx];
+                const col = getCatColor(p.cat);
+
+                cell.div.style.display = 'block';
+                cell.div.style.left = p.x + 'px';
+                cell.div.style.top = p.y + 'px';
+                cell.div.style.width = p.w + 'px';
+                cell.div.style.height = p.h + 'px';
+                cell.div.style.background = `linear-gradient(135deg, ${col.bg}, ${col.bgDark})`;
+
+                const pct = ((p.value / catTotal) * 100).toFixed(1);
+                cell.div.title = `${p.name} (${p.cat}): ${pct}% of ${p.cat} (${fmtBillions(p.value)})`;
+
+                const area = p.w * p.h;
+                const minDim = Math.min(p.w, p.h);
+
+                if (minDim > 50 && area > 3000) {
+                    const nameSize = Math.max(10, Math.min(18, minDim / 6));
+                    const pctSize = Math.max(9, Math.min(14, minDim / 8));
+                    cell.label.innerHTML = `
+                        <span style="font-size:${nameSize}px; font-weight:700; color:${col.text}; line-height:1.2;">${p.name}</span>
+                        <span style="font-size:${pctSize}px; color:rgba(255,255,255,0.8); margin-top:2px;">${fmtBillions(p.value)}</span>
+                    `;
+                } else if (minDim > 30 && area > 1200) {
+                    cell.label.innerHTML = `<span style="font-size:10px; font-weight:600; color:${col.text}; line-height:1.1;">${p.name}</span>`;
+                } else {
+                    cell.label.innerHTML = '';
+                }
+            }
+        }
+
+        // Hide subcategories with zero volume this frame
+        for (let i = 0; i < DATA.subcategories.length; i++) {
+            if (!placedSet.has(i)) cells[i].div.style.display = 'none';
+        }
+
+        // Stats
+        statTotal.textContent = fmtBillions(totalVolume);
+        statActive.textContent = placedSet.size;
+        statTop.textContent = topItem ? topItem.name : '-';
+    }
+
+    // =========================================================================
+    //  PLAYBACK CONTROLS
+    // =========================================================================
+    function getSpeed() {
+        return parseInt(speedSelect.value);
+    }
+
+    function updateTransitionDuration() {
+        const speed = getSpeed();
+        transitionMs = Math.min(speed * 0.8, 300);
+        const t = `left ${transitionMs}ms ease, top ${transitionMs}ms ease, width ${transitionMs}ms ease, height ${transitionMs}ms ease, opacity ${transitionMs}ms ease`;
+        for (const cell of cells) cell.div.style.transition = t;
+        for (const bg of catBgDivs) bg.style.transition = t;
+    }
+
+    function play() {
+        if (playing) return;
+        playing = true;
+        btnPlay.innerHTML = '&#9646;&#9646; <span data-i18n="tl.pause">Pause</span>';
+        btnPlay.classList.add('active');
+        updateTransitionDuration();
+        tick();
+    }
+
+    function pause() {
+        playing = false;
+        clearTimeout(playTimer);
+        btnPlay.innerHTML = '&#9654; <span data-i18n="tl.play">Play</span>';
+        btnPlay.classList.remove('active');
+    }
+
+    function tick() {
+        if (!playing) return;
+        if (frameIndex >= DATA.dates.length - 1) {
+            pause();
+            return;
+        }
+        renderFrame(frameIndex + 1);
+        playTimer = setTimeout(tick, getSpeed());
+    }
+
+    btnPlay.addEventListener('click', () => {
+        if (playing) pause();
+        else {
+            if (frameIndex >= DATA.dates.length - 1) frameIndex = 0;
+            play();
+        }
+    });
+
+    speedSelect.addEventListener('change', () => {
+        updateTransitionDuration();
+    });
+
+    // Slider
+    let sliderDebounce = null;
+    slider.addEventListener('input', () => {
+        if (playing) pause();
+        clearTimeout(sliderDebounce);
+        sliderDebounce = setTimeout(() => {
+            renderFrame(parseInt(slider.value));
+        }, 16);
+    });
+
+    // Skip buttons
+    document.getElementById('btnFirst').addEventListener('click', () => { pause(); renderFrame(0); });
+    document.getElementById('btnLast').addEventListener('click', () => { pause(); renderFrame(DATA.dates.length - 1); });
+    document.getElementById('btnPrev').addEventListener('click', () => { pause(); renderFrame(Math.max(0, frameIndex - 1)); });
+    document.getElementById('btnNext').addEventListener('click', () => { pause(); renderFrame(Math.min(DATA.dates.length - 1, frameIndex + 1)); });
+    document.getElementById('btnPrev30').addEventListener('click', () => { pause(); renderFrame(Math.max(0, frameIndex - 30)); });
+    document.getElementById('btnNext30').addEventListener('click', () => { pause(); renderFrame(Math.min(DATA.dates.length - 1, frameIndex + 30)); });
+
+    // Resize — rebuild tree (orientation may change) and re-render
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            if (DATA) {
+                const r = { x: 0, y: 0, w: container.clientWidth, h: container.clientHeight };
+                const catIdxList = catGroups.map((_, i) => i);
+                catTree = buildTree(catIdxList, r, ci => catGroups[ci].allTimeTotal);
+                renderFrame(frameIndex);
+            }
+        }, 200);
+    });
+
+    // =========================================================================
+    //  BOOT
+    // =========================================================================
+    init();
+    </script>
+    <script src="i18n.js"></script>
+    <script>
+    I18N.init({
+        'nav.timelapse': '타임랩스',
+        'tl.title':    '타임랩스',
+        'tl.subtitle': '일별 거래량 분포 변화를 트리맵으로 시각화합니다. 재생 버튼으로 자동 애니메이션하거나 슬라이더로 직접 탐색하세요.',
+        'tl.play':     '재생',
+        'tl.pause':    '일시정지',
+        'tl.speed':    '속도',
+        'tl.total':    '총 거래량',
+        'tl.active':   '활성 시장',
+        'tl.top':      '최대 시장',
+    });
+    </script>
+</body>
+</html>
